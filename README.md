@@ -1,0 +1,50 @@
+library(readxl)
+hw1_data <- read_excel("D:/Multivariate analysis/hw1-data.xlsx")
+View(hw1_data)
+data<-data.frame(hw1_data)
+library(ggplot2)
+library(GGally)
+
+#Univariate visualization
+#How is the GPA distributed in all the samples?
+ggplot(data, aes(x=GPA)) + geom_bar(fill="steelblue")
+#The numerical distribution of GPA ranged from approximately 2.8 to 4.0, with GPA values having a maximum distribution between 3.7 and 3.8
+
+#How is mental scores of gaming hours distributed in all the samples?
+ggplot(data, aes(x=Gaming_Hours_Per_Week)) + geom_bar(fill="steelblue")
+#In the sample, the most students played in 5 and 8 hours per week, with 5 and 4 students, respectively.
+#Only one student plays the most games for 20 hours a week. Only 2 students play only 2 hours a week.
+
+#Bivariate visualization
+#Is there a relationship between GPA and the level of English?
+ggplot(data, aes(x=English_Level, y=GPA)) + geom_point() + geom_smooth(method=lm)
+
+#GPA values are concentrated between 3.00 and 4.00, while TOEFL scores are relatively more dispersed.
+#Students with higher English level tend to have higher GPA,especially at the higher range of TOEFL scores.
+
+#Is there a relationship between GPA and the Study hours per week?
+library(ggplot2)
+ggplot(data, aes(x=Study_Hours_Per_Week,y=GPA)) + 
+  geom_point() +
+  labs(title="The Relationship Between GPA and Study Hours", x="Mental_Health", y="GPA")
+#Almost all the students who studied for more than 10 hours got good grades of more than 3.5.
+#Students whose study time is less than 10 hours will almost all have a GPA below 3.3 or even lower. It shows that learning time does have an significant correlation with GPA.
+
+#Is there a relationship between GPA and the sport time?
+library(ggplot2)
+ggplot(data, aes(x=Sport_Hours_Per_Week,y=GPA)) + 
+  geom_point() +
+  labs(title="The Relationship Between GPA and the sport time", x="Sport_Hours_Per_Week", y="GPA")
+#There is no significant correlation between GPA and the sport time.
+
+#Multivariate visualization
+
+#scatterplot matrix
+labs.data1 <- c("English_Level","Social_Integration","Study_Hours_Per_Week","Mental_Health","Social_Media_Hours_Per_Week","Gaming_Hours_Per_Week","Sport_Hours_Per_Week")
+scatterplotMatrix(~English_Level+Social_Integration+Study_Hours_Per_Week+Mental_Health+Social_Media_Hours_Per_Week+Gaming_Hours_Per_Week+Sport_Hours_Per_Week | 
+GPA, data=data, var.labels=labs.data1,cex.labels=0.7, data1="boxplot",smooth=FALSE,reg.line=FALSE,
+pch=c(1,16),col=rep("steelblue",2), legend.plot=FALSE)
+
+#What is the relationship between GPA and English Level, study hours and social integration?
+model <- lm(GPA ~ English_Level + Social_Integration + Study_Hours_Per_Week + Mental_Health + Social_Media_Hours_Per_Week + Gaming_Hours_Per_Week + Sport_Hours_Per_Week, data = data)
+summary(model)
