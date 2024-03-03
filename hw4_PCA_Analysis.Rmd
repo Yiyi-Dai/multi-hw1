@@ -1,0 +1,94 @@
+---
+title: "PCA_Analysis"
+author: "Yiyi"
+date: "2024-03-01"
+output: html_document
+---
+
+```{r}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+library(data.table)
+data <- structure(list(
+  GPA = c(3.75, 4.0, 3.5, 3.75, 3.6, 3.2, 2.8, 3.75, 4.0, 3.9, 3.4, 3.0, 3.0, 3.9, 3.8, 3.3, 3.4, 3.75, 3.9, 3.5, 3.75, 3.9, 4.0, 3.2, 3.75, 3.8, 3.6, 3.1, 3.3, 2.9),
+  English_Level = c(92, 100, 89, 98, 89, 94, 84, 102, 110, 105, 93, 90, 85, 99, 83, 90, 91, 100, 106, 95, 98, 94, 105, 85, 99, 99, 90, 92, 93, 86),
+  Social_Integration = c(5, 2, 1, 3, 2, 3, 10, 7, 5, 4, 4, 9, 1, 1, 3, 2, 2, 5, 4, 3, 4, 3, 3, 9, 3, 4, 4, 1, 1, 1),
+  Study_Hours_Per_Week = c(15, 20, 1, 12, 6, 6, 5, 18, 12, 14, 10, 8, 4, 19, 10, 5, 6, 10, 15, 13, 14, 16, 18, 6, 10, 12, 16, 4, 3, 2),
+  Mental_Health = c(4, 3, 3, 4, 2, 3, 2, 4, 4, 5, 3, 4, 1, 2, 2, 4, 3, 3, 4, 2, 5, 4, 5, 1, 3, 4, 2, 1, 2, 1),
+  Social_Media_Hours_Per_Week = c(20, 10, 18, 16, 13, 20, 15, 16, 12, 22, 15, 24, 5, 4, 15, 25, 23, 15, 18, 15, 13, 16, 12, 24, 18, 12, 14, 28, 13, 22),
+  Gaming_Hours_Per_Week = c(10, 6, 5, 10, 8, 3, 15, 8, 2, 5, 14, 10, 12, 7, 5, 16, 18, 8, 5, 2, 13, 5, 4, 12, 6, 8, 12, 14, 15, 20),
+  Sport_Hours_Per_Week = c(2, 10, 40, 14, 7, 7, 14, 5, 3, 12, 10, 0, 8, 0, 2, 8, 10, 9, 8, 0, 2, 3, 5, 0, 5, 7, 7, 1, 2, 0)
+), class = "data.frame",row.names = c(NA, -30L))
+
+#Get the Correlations between the variables
+cor(data)
+#Compute the principal components
+data_pca <- prcomp(data,scale=TRUE)
+data_pca
+summary(data_pca)
+#Eigenvalues
+eigen_data <- data_pca$sdev^2
+names(eigen_data) <- paste("PC",1:8,sep="")
+eigen_data
+sumlambdas <- sum(eigen_data)
+sumlambdas
+#Proportion of Variance Explained
+propvar <- eigen_data/sumlambdas
+propvar
+#Cumulative Proportion of Variance Explained
+cumvar_data <- cumsum(propvar)
+cumvar_data
+#Create a table of explained variance
+matlambdas <- rbind(eigen_data,propvar,cumvar_data)
+rownames(matlambdas) <- c("Eigenvalues","Prop.variance","Cum. prop.variance")
+round(matlambdas,4)
+#The first three principal components (PC1, PC2, and PC3) have eigenvalues greater than 1;
+#The cumulative variance explained by the first five principal components amounts to 92.21%, which already surpasses the 85%.
+#Keep PC1,PC2,PC3,PC4,PC5, 5 components.
+
+#Loadings(eigenvectors)
+data_pca$rotation
+print(data_pca)
+
+#Explain the variate representation each PCs:
+#PC1 suggests a contrast between academic performance (negative loadings on GPA, English Level, Study Hours) and leisure activities (positive loadings on Social Media and Gaming Hours). It might represent a balance between studying and leisure.
+
+#PC2 shows a divide between social integration and media use (negative) and sports (positive), indicating it captures the distinction between social vs. physical activities.
+
+#PC3 is positively associated with Mental Health and Sport Hours, suggesting a link between physical activity and better mental well-being.
+
+#PC4 and PC5 capture more specific patterns or preferences in the data, like PC5's strong positive loading on Gaming Hours indicating a gaming preference.
+
+#Visualization
+library(factoextra)
+
+#Scree plot
+fviz_eig(data_pca, addlabels = TRUE)
+#The first principal component catch the most information of data,with the percentage of 44.6%.
+#The percentage of variance explained by the first principal component sees a significant drop, and then the variance explained by subsequent components gradually levels off.
+#Biplot of individuals and variables
+biplot(data_pca)
+fviz_pca_var(data_pca,col.var = "cos2",
+             gradient.cols = c("#FFCC00", "#CC9933", "#660033", "#330033"),
+             repel = TRUE)
+#The arrows for Sport Hours Per Week and Gaming Hours Per Week point towards the first quadrant, indicating they have positive loadings on both PC1 and PC2, suggesting a positive correlation with these components.
+#Social Integration and Social Media Hours Per Week point towards the third quadrant, showing negative loadings on both PC1 and PC2, suggesting they are inversely related to the first two principal components. 
+#GPA and English Level point to the left, indicating negative loadings on PC1, contrasting with sports and gaming activities. #The proximity of the arrows for sports and gaming may suggest a positive correlation between these variables in the dataset. #Conversely, the opposing directions of the arrows for GPA and social media use time may indicate a negative correlation between these aspects.
+
+#Log(eigenvalue) diagram
+plot(log(eigen_data), xlab = "Component number",ylab = "log(Component variance)", type="l",main = "Log(eigenvalue) diagram")
+
+#Individuals Factor Map
+fviz_pca_ind(data_pca, col.ind = "cos2", 
+                  gradient.cols = c("#FFCC00", "#CC9933", "#660033", "#330033"), 
+                  repel = TRUE)
+#The chart displays individual scores on the first two principal components in PCA.
+#Darker points indicate individuals with higher scores on these components, suggesting more extreme values in certain variables.
+#Individuals near the origin tend to have average scores across all principal variables.
+
+```
+
