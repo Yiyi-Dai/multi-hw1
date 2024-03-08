@@ -1,0 +1,102 @@
+---
+title: "Untitled"
+output: html_document
+date: "2024-03-06"
+---
+# My data
+```{r}
+library(data.table)
+data_bacteria <- structure(list(
+  Bacteria = c("Aerobacter aerogenes", "Brucella abortus", "Brucella anthracis", "Diplococcus pneumoniae", "Escherichia coli", "Klebsiella pneumoniae","Mycobacterium tuberculosis", "Proteus vulgaris", "Pseudomonas aeruginosa", "Salmonella (Eberthella) typhosa", "Salmonella schottmuelleri","Staphylococcus albus", "Staphylococcus aureus", "Streptococcus fecalis","Streptococcus hemolyticus", "Streptococcus viridans"),
+  Penicilin = c(870, 1, 0.001, 0.005, 100, 850, 800, 3, 850, 1, 10, 0.007, 0.03, 1, 0.001, 0.005),
+  Streptomycin = c(1, 2, 0.01, 11, 0.4, 1.2, 5, 0.1, 2, 0.4, 0.8, 0.1, 0.03, 1, 14, 10),
+  Neomycin = c(1.6, 0.02, 0.007, 10, 0.1, 1, 2, 0.1, 0.4, 0.008, 0.09, 0.001, 0.001, 0.1, 10, 40),
+  Gram = c('negative', "negative", "positive", "positive", "negative", "negative", "negative", "negative", "negative", "negative", "negative", "positive", "positive", "positive", "positive", "positive")
+  ), class = "data.frame",row.names = c(NA, -16L))
+```
+
+
+# Hierarchical clustering
+```{r}
+library(cluster)
+library(readr)
+library(factoextra)
+library(magrittr)
+library(NbClust)
+
+#Standardize
+data_numeric <- data_bacteria[,c("Penicilin", "Streptomycin", "Neomycin")]
+data_scaled <- scale(data_numeric)
+#Distance matrix
+dist.mat <- dist(data_scaled, method="euclidean")
+
+
+#Hierarchical clustering
+rownames(data_bacteria) <- data_bacteria$Bacteria
+
+#Use NbClust to compute optimal numbers of clusters
+res.nbclust <- NbClust(data_scaled,distance = "euclidean", min.nc = 2, max.nc = 10, method = "single", index ="all")
+#Based on the two charts, the clustering effect reaches a relative high point, and increasing the number of clusters does not significantly improve the quality of clustering. Therefore, two clusters might be the optimal number of clusters for this dataset.
+
+hc <- hclust(dist.mat, method="single")
+plot(as.dendrogram(hc),ylab="Distance between Bacteria",main="Dendrogram of sixteen Bacteria")
+#However,choosing to cut at a horizontal line of about 1.0 can form four clusters,which have longer vertical segments below the level, indicating a greater distance between them.
+
+#Visualization
+fviz_dend(hc,k=4,cex = 0.5,k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07"),color_labels_by_k = TRUE, rect = TRUE, ylab="Distance between Bacteria",main="Dendrogram of sixteen Bacteria")
+```
+
+# Non-Hierarchical clustering
+K-means Clustering
+```{r}
+data_scaled <- scale(data_numeric)
+# Computing the percentage of variation accounted for 2-5 clusters
+(kmeans2.data_bacteria <- kmeans(data_scaled,2,nstart = 16))
+perc.var.2 <- round(100*(1 - kmeans2.data_bacteria$betweenss/kmeans2.data_bacteria$totss),1)
+names(perc.var.2) <- "Perc. 2 clus"
+
+(kmeans3.data_bacteria <- kmeans(data_scaled,3,nstart = 16))
+perc.var.3 <- round(100*(1 - kmeans3.data_bacteria$betweenss/kmeans3.data_bacteria$totss),1)
+names(perc.var.3) <- "Perc. 3 clus"
+
+(kmeans4.data_bacteria <- kmeans(data_scaled,4,nstart = 16))
+perc.var.4 <- round(100*(1 - kmeans4.data_bacteria$betweenss/kmeans4.data_bacteria$totss),1)
+names(perc.var.4) <- "Perc. 4 clus"
+
+(kmeans5.data_bacteria <- kmeans(data_scaled,5,nstart = 16))
+perc.var.5 <- round(100*(1 - kmeans5.data_bacteria$betweenss/kmeans5.data_bacteria$totss),1)
+names(perc.var.5) <- "Perc. 5 clus"
+
+perc.var.2
+perc.var.3
+perc.var.4
+perc.var.5
+
+Variance_List <- c(perc.var.2,perc.var.3,perc.var.4,perc.var.5)
+plot(Variance_List)
+
+wss <- sapply(1:10, function(k){kmeans(data_scaled, k, nstart = 10)$tot.withinss})
+plot(1:10, wss, type = "b", xlab = "Number of Clusters", ylab = "Within groups sum of squares")
+#In the elbow plot, there is a marked change in the rate of decrease in within-group sum of squares between two or three clusters. This inflection point suggests that three clusters is a potential optimal choice for the dataset.After that the line becomes flattened.
+
+set.seed(123)
+k_optimal <- 3
+km <- kmeans(data_scaled, centers = k_optimal, nstart = 16)
+# Visualize
+fviz_cluster(km, data = data_scaled,
+             ellipse.type = "convex",
+             palette = "jco",
+             ggtheme = theme_minimal())
+```
+
+# PCA
+```{r}
+pca <- prcomp(data_scaled)
+# Create a data frame with PCA scores and cluster assignments
+pca_data <- data.frame(pca$x[, 1:2], Cluster = kmeans2.data_bacteria$cluster)
+# Use ggplot2 to visualize the clusters
+library(ggplot2)
+ggplot(pca_data, aes(PC1, PC2, color = factor(Cluster))) + 
+    geom_point() + 
+    labs(title = "PCA Plot of Clusters")
+```
