@@ -1,0 +1,86 @@
+---
+stitle: "hw6_factor_analysis"
+output: html_document
+date: "2024-03-22"
+---
+
+# My data
+```{r}
+library(data.table)
+data1 <- structure(list(
+  GPA = c(3.75, 4.0, 3.5, 3.75, 3.6, 3.2, 2.8, 3.75, 4.0, 3.9, 3.4, 3.0, 3.0, 3.9, 3.8, 3.3, 3.4, 3.75, 3.9, 3.5, 3.75, 3.9, 4.0, 3.2, 3.75, 3.8, 3.6, 3.1, 3.3, 2.9),
+  English_Level = c(92, 100, 89, 98, 89, 94, 84, 102, 110, 105, 93, 90, 85, 99, 83, 90, 91, 100, 106, 95, 98, 94, 105, 85, 99, 99, 90, 92, 93, 86),
+  Social_Integration = c(5, 2, 1, 3, 2, 3, 10, 7, 5, 4, 4, 9, 1, 1, 3, 2, 2, 5, 4, 3, 4, 3, 3, 9, 3, 4, 4, 1, 1, 1),
+  Study_Hours_Per_Week = c(15, 20, 1, 12, 6, 6, 5, 18, 12, 14, 10, 8, 4, 19, 10, 5, 6, 10, 15, 13, 14, 16, 18, 6, 10, 12, 16, 4, 3, 2),
+  Mental_Health = c(4, 3, 3, 4, 2, 3, 2, 4, 4, 5, 3, 4, 1, 2, 2, 4, 3, 3, 4, 2, 5, 4, 5, 1, 3, 4, 2, 1, 2, 1),
+  Social_Media_Hours_Per_Week = c(20, 10, 18, 16, 13, 20, 15, 16, 12, 22, 15, 24, 5, 4, 15, 25, 23, 15, 18, 15, 13, 16, 12, 24, 18, 12, 14, 28, 13, 22),
+  Gaming_Hours_Per_Week = c(10, 6, 5, 10, 8, 3, 15, 8, 2, 5, 14, 10, 12, 7, 5, 16, 18, 8, 5, 2, 13, 5, 4, 12, 6, 8, 12, 14, 15, 20),
+  Sport_Hours_Per_Week = c(2, 10, 40, 14, 7, 7, 14, 5, 3, 12, 10, 0, 8, 0, 2, 8, 10, 9, 8, 0, 2, 3, 5, 0, 5, 7, 7, 1, 2, 0)
+), class = "data.frame",row.names = c(NA, -30L))
+```
+
+# Factor Analysis
+```{r}
+library(psych)
+options(warn = -1)
+
+#Factor recommendations
+fa.parallel(data1)
+vss(data1)  
+#choose 4 factors
+
+#Factor analysis
+fit.pc <- principal(data1, nfactors=4, rotate="varimax")
+print(fit.pc)  
+#Loading matrix
+print(fit.pc$loadings,cutoff=0.3)
+#GPA and English_Level have high positive loadings on Factor RC1, indicating they are highly related to RC1. GPA also has a negative loading on Factor RC4, but this relationship is relatively weaker.
+#Social_Integration has an extremely high loading on Factor RC3, indicating an almost perfect correlation.
+#Study_Hours_Per_Week has a high positive loading on Factor RC1, and it has negative loadings on Factors RC4 and RC3, with a weaker relationship with RC3.
+#Mental_Health is primarily related to Factor RC1.
+#Social_Media_Hours_Per_Week is mainly related to Factor RC4.
+#Gaming_Hours_Per_Week has a positive loading on Factor RC4 and a strong negative loading on Factor RC1.
+#Sport_Hours_Per_Week is highly related to Factor RC3.
+
+#Communalities
+loadings_squared <- fit.pc$loadings^2
+communalities <- rowSums(loadings_squared)
+print(communalities)
+#The high communality values indicate that the model captures a significant portion of the variance for most of the variables. Especially for Social_Integration and Sport_Hours_Per_Week, their high communalities suggest a strong correlation with the factors. As for Gaming_Hours_Per_Week, its lower communality maybe imply that there are other factors affecting gaming time that are not captured by the factors in the model.
+
+#Rotated factor scores
+scores <- factor.scores(data1,fit.pc)$scores
+print(scores)
+```
+
+# Visualization
+```{r}
+fa.plot(fit.pc) # See Correlations within Factors
+fa.diagram(fit.pc) # Visualize the relationship
+#"GPA","English_Level","Mental_Health" and "Study_Hours_Per_Week" are strongly positively correlated with "RC1" (loadings are approximately 0.9, 0.9, 0.9, and 0.8, respectively).
+#"Gaming_Hours_Per_Week" has a strong negative loading on "RC1" (-0.6).
+#"Social_Media_Hours_Per_Week" is strongly positively correlated with "RC4" (loading is 0.9).
+#"Sport_Hours_Per_Week"and "Social_Integration" are associated with "RC3" and "RC2," respectively. 
+#A loading of 1 could be due to randomness caused by a small sample size.
+
+plot(communalities) # Visualize the communalities
+
+library(ggplot2)
+ggplot(scores, aes(x=RC1)) +
+  geom_histogram(aes(y=after_stat(density)), binwidth=.5, fill="skyblue", color="black") +
+  geom_density(alpha=.2, fill="#FF6666") +
+  labs(x="Factor 1 Score", y="Density")  # Visualize factor 1 score
+ggplot(scores, aes(x=RC2)) +
+  geom_histogram(aes(y=after_stat(density)), binwidth=.5, fill="skyblue", color="black") +
+  geom_density(alpha=.2, fill="#FF6666") +
+  labs(x="Factor 2 Score", y="Density")  # Visualize factor 2 score
+ggplot(scores, aes(x=RC3)) +
+  geom_histogram(aes(y=after_stat(density)), binwidth=.5, fill="skyblue", color="black") +
+  geom_density(alpha=.2, fill="#FF6666") +
+  labs(x="Factor 3 Score", y="Density")  # Visualize factor 3 score
+ggplot(scores, aes(x=RC4)) +
+  geom_histogram(aes(y=after_stat(density)), binwidth=.5, fill="skyblue", color="black") +
+  geom_density(alpha=.2, fill="#FF6666") +
+  labs(x="Factor  4Score", y="Density")  # Visualize factor 4 score
+
+```
