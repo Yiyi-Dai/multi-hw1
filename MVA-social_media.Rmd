@@ -1,0 +1,35 @@
+---
+title: "MVA-class_socialmedia"
+output: html_document
+date: "2024-03-25"
+---
+
+# data
+
+```{r}
+library(data.table)
+data1<-read.csv("D:/Multivariate_analysis/MVA_CLASS_COMBINE_minutes.csv",row.names=1, fill = TRUE)
+```
+
+# MVA
+
+```{r }
+data_numeric<-data1[, c("Ins_spent","Linkedin_spent","Snapchat_spent","Twitter_spent","Whatapps_and_Wechat_spent","Youtube_spent","OTT_spent","Reddit_spent","job_interview_calls_received","networking_with_coffee_chats","learning_items","How_felt")]
+scale <- scale(data_numeric)
+classcov <- cor(data_numeric)
+
+#average
+classmean <- colMeans(data_numeric)
+
+#mva distance
+mvascale <- mahalanobis(data_numeric, classmean, classcov)
+print(mvascale[1])
+
+
+
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```
+
