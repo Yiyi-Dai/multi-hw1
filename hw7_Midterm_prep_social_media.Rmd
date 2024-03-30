@@ -1,0 +1,233 @@
+---
+title: "MVA-class_socialmedia"
+output: html_document
+date: "2024-03-25"
+---
+
+# Class data
+
+```{r}
+library(data.table)
+data1<-read.csv("D:/Multivariate_analysis/MVA_CLASS_COMBINE_minutes.csv",row.names=1, fill = TRUE)
+```
+
+# MVA
+
+```{r }
+data_numeric<-data1[, c("Ins_spent","Linkedin_spent","Snapchat_spent","Twitter_spent","Whatapps_and_Wechat_spent","Youtube_spent","OTT_spent","Reddit_spent","job_interview_calls_received","networking_with_coffee_chats","learning_items","How_felt")]
+data_scaled <- scale(data_numeric)
+classcov <- cor(data_scaled)
+
+#average
+classmean <- colMeans(data_scaled)
+
+#mva distance
+mvascale <- mahalanobis(data_scaled, classmean, classcov)
+print(mvascale[1])
+
+```
+# PCA
+
+```{r }
+
+#Compute the principal components
+data_pca <- prcomp(data_numeric,scale=TRUE) 
+data_pca
+summary(data_pca)
+#Eigenvalues
+eigen_data <- data_pca$sdev^2
+names(eigen_data) <- paste("PC",1:12,sep="")
+eigen_data
+sumlambdas <- sum(eigen_data)
+sumlambdas
+#Proportion of Variance Explained
+propvar <- eigen_data/sumlambdas
+propvar
+#Cumulative Proportion of Variance Explained
+cumvar_data <- cumsum(propvar)
+cumvar_data
+#Create a table of explained variance
+matlambdas <- rbind(eigen_data,propvar,cumvar_data)
+rownames(matlambdas) <- c("Eigenvalues","Prop.variance","Cum. prop.variance")
+round(matlambdas,4)   
+
+#The first four principal components (PC1, PC2, PC3 and PC4) have eigenvalues greater than 1;
+#The cumulative variance explained by the first six principal components amounts to 85.163%, which already surpasses the 85%.
+#Keep PC1,PC2,PC3,PC4,PC5,PC6; 6 components.
+
+#Log(eigenvalue) diagram
+plot(log(eigen_data), xlab = "Component number",ylab = "log(Component variance)", type="l",main = "Log(eigenvalue) diagram")
+
+#Scree plot
+library(factoextra)
+fviz_eig(data_pca, addlabels = TRUE)
+#The first principal component catch the most information of data,with the percentage of 28.7%.
+#The percentage of variance explained by the second principal component sees a significant drop, and then the variance explained by subsequent components gradually levels off.
+
+#Rotation matrix 
+data_pca$rotation
+
+#PC1 is positively associated with Ins_spent, Linkedin_spent, Snapchat_spent, Youtube_spent and OTT_spent. On the contrary, PC1 is negative correlated with Twitter_spent, Whatapps_and_Wechat_spent and Reddit_spent.
+#The variable with the largest contribution to PC1 is Snapchat_spent(0.47995436) and the least contribution is Reddit_spent(-0.03673098).
+#PC2 is positively associated with How_felt and learning_items,suggesting PC2 maybe capture the link of happiness and learning new things.
+#Whatapps_and_Wechat_spent has a high negative loading on PC3(-0.55150308),indicating it is negatively associated with PC3.
+#PC4 capture more information about networking_with_coffee_chats(0.613829038).
+#Ins_spent(-0.41263669) and Reddit_spent(0.71562118) have contrary performance on PC5.
+#Except Ins_spent,Reddit_spent,job_interview_calls_received, other variable have positive contribution on PC6.
+
+# Other visualization
+#Biplot of individuals and variables
+fviz_pca_var(data_pca,col.var = "cos2",
+             gradient.cols = c("#FFCC00", "#CC9933", "#660033", "#330033"),
+             repel = TRUE)
+#The arrows for Linkedin_spent and job_interview_calls_received point towards the first quadrant, indicating they have positive loadings on both PC1 and PC2, suggesting a positive correlation with these components.
+
+#Twitter_spent and Reddit_spent point towards the third quadrant, showing negative loadings on both PC1 and PC2, suggesting they are inversely related to the first two principal components. 
+
+#Whatapps_and_Wechat_spent and learning_items point to the left, indicating negative loadings on PC1, contrasting with Snapchat_spent and Ins_spent. 
+
+#The proximity of the arrows for Snapchat_spent and Ins_spent may suggest a positive correlation between these variables in the dataset. 
+#Conversely, the opposing directions of the arrows for Whatapps_and_Wechat_spent and OTT_spent may indicate a negative correlation between these aspects.
+
+#Individuals Factor Map
+fviz_pca_ind(data_pca, col.ind = "cos2", 
+                  gradient.cols = c("#FFCC00", "#CC9933", "#660033", "#330033"), 
+                  repel = TRUE)
+#"Harvey" has an extremely high positive score on PC1 and a lower score on PC2, and its color indicates a very high contribution on PC1.
+#"Bunny" and "vp1234" also have high scores on PC1, but not as extreme as "Harvey".
+#"masini" and "AKIRA" have negative scores on PC1 and also negative scores or scores close to zero on PC2.
+#Most individuals are concentrated in the central area of the ploy, which means that their scores on PC1 and PC2 are relatively average.
+
+```
+
+# Cluster Analysis(Hierarchical)
+
+```{r }
+# Hierarchical clustering
+library(cluster)
+library(readr)
+library(factoextra)
+library(magrittr)
+library(NbClust)
+
+library(data.table)
+data1<-read.csv("D:/Multivariate_analysis/MVA_CLASS_COMBINE_minutes.csv")
+rownames(data1) <- data1$character_id
+
+#Standardize
+data_numeric<-data1[, c("Ins_spent","Linkedin_spent","Snapchat_spent","Twitter_spent","Whatapps_and_Wechat_spent","Youtube_spent","OTT_spent","Reddit_spent","job_interview_calls_received","networking_with_coffee_chats","learning_items","How_felt")]
+data_scaled <- scale(data_numeric)
+#Distance matrix
+dist.mat <- dist(data_scaled, method="euclidean")
+
+#Average Silhouette Method
+library(cluster)
+sil_width <- numeric(9)
+for(k in 2:10) {
+  pam_result <- pam(data_scaled, k)
+  sil_width[k-1] <- pam_result$silinfo$avg.width
+}
+
+plot(2:10, sil_width, type = "b", xlab = "Number of Clusters", ylab = "Average Silhouette Width", main = "Average Silhouette Method")
+#The highest Average Silhouette Width provides the optimal segmentation of the data,which appears at the position of k=5. However, this value is not very close to 1, indicating that the clustering effect may only be relatively better, but not particularly obvious.
+
+#dendrogram
+hc <- hclust(dist.mat, method="single")
+fviz_dend(hc,k=5,cex = 0.5,k_colors = c("#2E9FDF", "#00AFBB", "#E7B800", "#FC4E07","#C3B1E1"),color_labels_by_k = TRUE, rect = TRUE, ylab="Distance between students",main="Dendrogram of students")
+```
+
+# Cluster Analysis(Non-Hierarchical clustering)
+K-means Clustering
+```{r}
+data_scaled <- scale(data_numeric)
+# Computing the percentage of variation accounted for 2-5 clusters # 计算2到5个聚类所解释的变异百分比
+(kmeans2.data_socialmedia <- kmeans(data_scaled,2,nstart = 16))
+perc.var.2 <- round(100*(1 - kmeans2.data_socialmedia$betweenss/kmeans2.data_socialmedia$totss),1)
+names(perc.var.2) <- "Perc. 2 clus"
+
+(kmeans3.data_socialmedia <- kmeans(data_scaled,3,nstart = 16))
+perc.var.3 <- round(100*(1 - kmeans3.data_socialmedia$betweenss/kmeans3.data_socialmedia$totss),1)
+names(perc.var.3) <- "Perc. 3 clus"
+
+(kmeans4.data_socialmedia <- kmeans(data_scaled,4,nstart = 16))
+perc.var.4 <- round(100*(1 - kmeans4.data_socialmedia$betweenss/kmeans4.data_socialmedia$totss),1)
+names(perc.var.4) <- "Perc. 4 clus"
+
+(kmeans5.data_socialmedia <- kmeans(data_scaled,5,nstart = 16))
+perc.var.5 <- round(100*(1 - kmeans5.data_socialmedia$betweenss/kmeans5.data_socialmedia$totss),1)
+names(perc.var.5) <- "Perc. 5 clus"
+
+perc.var.2
+perc.var.3
+perc.var.4
+perc.var.5
+
+Variance_List <- c(perc.var.2,perc.var.3,perc.var.4,perc.var.5)
+plot(Variance_List)
+
+#Compute optimal number of factors
+wss <- sapply(1:10, function(k){kmeans(data_scaled, k, nstart = 10)$tot.withinss})
+plot(1:10, wss, type = "b", xlab = "Number of Clusters", ylab = "Within groups sum of squares")
+#After k=4,line goes to flatten.
+
+#Execute kmeans,set k=4
+set.seed(123)
+k_optimal <- 4
+km <- kmeans(data_scaled, centers = k_optimal, nstart = 20)
+# Visualize
+fviz_cluster(km, data = data_scaled,
+             ellipse.type = "convex",
+             palette = "jco",
+             ggtheme = theme_minimal())
+#The yellow cluster (marked as 2) covers the largest area and its data points are relatively scattered.
+#The blue cluster (marked as 1) and the red cluster (marked as 4) are more concentrated.
+#The gray cluster (marked as 3) has only two data point, which is far apart from the other clusters.
+```
+
+# Factor Analasis
+
+```{r }
+library(psych)
+#Factor recommendations
+
+fa.parallel(data_numeric)
+#RC1 and RC2 is significant.
+vss(data_numeric)  
+#The first three factors are sufficient, as there is no significant improvement in the model fit beyond 3 factors.
+#choose 3 factors
+
+#Factor analysis
+fit.pc <- principal(data_numeric, nfactors=3, rotate="varimax")
+print(fit.pc) 
+
+fa.plot(fit.pc) # See Correlations within Factors
+fa.diagram(fit.pc) # Visualize the relationship
+
+#Loading matrix
+print(fit.pc$loadings,cutoff=0.3)
+#Ins_spent, Linkedin_spent, Snapchat_spentGPA Youtube_spent and OTT_spent have high positive loadings on Factor RC1, indicating they are highly related to RC1. Espercially, Snapchat_spent has an extremely high loading on Factor RC1(0.928), indicating an almost perfect correlation. Networking_with_coffee_chats and learning_items has a negative loading on Factor RC1, but this relationship is relatively weaker.
+#Twitter_spent and Whatapps_and_Wechat_spent both have a high loading on Factor RC3, but the former one has a positive loading and the latter one has negative one.
+#job_interview_calls_received and How_felt is primarily related to Factor RC2.
+#Reddit_spent has a positive loading on Factor RC3(0.359), but has a negative loading on RC2(-0.386).
+
+#Communalities
+loadings_squared <- fit.pc$loadings^2
+communalities <- rowSums(loadings_squared)
+print(communalities)
+#The high communality values indicate that the model captures a significant portion of the variance for most of the variables. Especially for Social_Integration and Sport_Hours_Per_Week, their high communalities suggest a strong correlation with the factors. As for Gaming_Hours_Per_Week, its lower communality maybe imply that there are other factors affecting gaming time that are not captured by the factors in the model.
+
+#Rotated factor scores 
+scores <- factor.scores(data_numeric,fit.pc)$scores
+print(scores)
+#The person with the highest score on factor RC1 was Harvey
+#Baiqi had a very low score on the third factor (RC3) (-1.916020841), which may mean that Baiqi is lacking in the characteristics represented by this factor.
+
+```
+# Takeaway
+
+From the PCA analysis, we were able to learn that the amount of time spent on linkedin was significantly correlated with the number of job offers obtained.
+Cluster analysis further separated students into four groups that differ in their preferences for social media use.
+Factor analysis indicates that Snapchat_spent, OTT_spent, Youtube_spent, Linkedin_spent, Ins_spent contribute more highly to the factor RC1, indicating a positive correlation between them. Learning_items, How_felt, job_interview_calls_received have high contributions to RC2, while Reddit_spent are negatively correlated with them. Twitter_spent and networking_with_coffee_chats have high contribution on RC3, while Whatapps_and_Wechat_spent have negative correlation with them.
+
+
+
