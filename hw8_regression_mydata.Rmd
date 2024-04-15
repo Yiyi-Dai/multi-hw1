@@ -1,0 +1,92 @@
+---
+title: "regression_mydata"
+output: html_document
+date: "2024-04-11"
+---
+# My Data
+```{r setup, include=FALSE}
+library(readr)
+library(data.table)
+data1 <- structure(list(
+  GPA = c(3.75, 4.0, 3.5, 3.75, 3.6, 3.2, 2.8, 3.75, 4.0, 3.9, 3.4, 3.0, 3.0, 3.9, 3.8, 3.3, 3.4, 3.75, 3.9, 3.5, 3.75, 3.9, 4.0, 3.2, 3.75, 3.8, 3.6, 3.1, 3.3, 2.9),
+  English_Level = c(92, 100, 89, 98, 89, 94, 84, 102, 110, 105, 93, 90, 85, 99, 83, 90, 91, 100, 106, 95, 98, 94, 105, 85, 99, 99, 90, 92, 93, 86),
+  Social_Integration = c(5, 2, 1, 3, 2, 3, 10, 7, 5, 4, 4, 9, 1, 1, 3, 2, 2, 5, 4, 3, 4, 3, 3, 9, 3, 4, 4, 1, 1, 1),
+  Study_Hours_Per_Week = c(15, 20, 1, 12, 6, 6, 5, 18, 12, 14, 10, 8, 4, 19, 10, 5, 6, 10, 15, 13, 14, 16, 18, 6, 10, 12, 16, 4, 3, 2),
+  Mental_Health = c(4, 3, 3, 4, 2, 3, 2, 4, 4, 5, 3, 4, 1, 2, 2, 4, 3, 3, 4, 2, 5, 4, 5, 1, 3, 4, 2, 1, 2, 1),
+  Social_Media_Hours_Per_Week = c(20, 10, 18, 16, 13, 20, 15, 16, 12, 22, 15, 24, 5, 4, 15, 25, 23, 15, 18, 15, 13, 16, 12, 24, 18, 12, 14, 28, 13, 22),
+  Gaming_Hours_Per_Week = c(10, 6, 5, 10, 8, 3, 15, 8, 2, 5, 14, 10, 12, 7, 5, 16, 18, 8, 5, 2, 13, 5, 4, 12, 6, 8, 12, 14, 15, 20),
+  Sport_Hours_Per_Week = c(2, 10, 40, 14, 7, 7, 14, 5, 3, 12, 10, 0, 8, 0, 2, 8, 10, 9, 8, 0, 2, 3, 5, 0, 5, 7, 7, 1, 2, 0)
+), class = "data.frame",row.names = c(NA, -30L))
+str(data1)
+```
+
+# Multiple Regression
+
+```{r}
+set.seed(123)
+sample_size <- floor(0.7 * nrow(data1))
+train_indices <- sample(seq_len(nrow(data1)), size = sample_size)
+train_data <- data1[train_indices, ]
+test_data <- data1[-train_indices, ]
+#multiple regression model development
+fit1 <- lm(GPA~English_Level+Social_Integration+Study_Hours_Per_Week+Mental_Health+Social_Media_Hours_Per_Week+Gaming_Hours_Per_Week+Sport_Hours_Per_Week, data=train_data)
+plot(fit1)
+
+#acceptance
+summary(fit1)
+
+#p(multiple)=0.00147, significant
+#p(Social_Integration)= 0.029762, p(Mental_Health)= 0.042891, p(Gaming_Hours_Per_Week)= 0.005747, significant
+#Surprisingly, English_Level and Study_Hours_Per_Week are not significant.
+#Residual standard error=0.1436 on 13 degrees of freedom,indicating that the mean difference between predicted values and actual values is 0.1436.
+#R-squared value is 0.8846, indicating that the model can explain about 88.46% of the variability in the dependent variable (GPA).
+
+#take away the variable with maximum p: English_Level
+fit2 <- lm(GPA~Social_Integration+Study_Hours_Per_Week+Mental_Health+Social_Media_Hours_Per_Week+Gaming_Hours_Per_Week+Sport_Hours_Per_Week, data=train_data)
+summary(fit2)
+#take away the variable with maximum p: Social_Media_Hours_Per_Week
+fit3 <- lm(GPA~Social_Integration+Study_Hours_Per_Week+Mental_Health+Gaming_Hours_Per_Week+Sport_Hours_Per_Week, data=train_data)
+summary(fit3)
+#take away the variable with maximum p: Sport_Hours_Per_Week
+fit4 <- lm(GPA~Social_Integration+Study_Hours_Per_Week+Mental_Health+Gaming_Hours_Per_Week, data=train_data)
+summary(fit4)
+#p(multiple)=8.5e-14, significant
+#p(Social_Integration)= 0.01923, p(Study_Hours_Per_Week)= 0.00346, p(Mental_Health)= 0.00791, p(Gaming_Hours_Per_Week)= 0.00142, all significant.
+#Residual standard error=0.1347 on 16 degrees of freedom,indicating that the mean difference between predicted values and actual values is 0.1347.
+#R-squared value is 0.8751, indicating that the model can explain about 87.51% of the variability in the dependent variable (GPA).
+
+#residual analysis
+library(car)
+res<-residuals(fit4)
+plot(res)   #almost between -0.2 and 0.2
+#normality of Residuals
+#qq plot for studentized resid
+qqPlot(fit4, main="QQ Plot")   
+#distribution of studentized residuals
+library(MASS)
+sresid <- studres(fit4)
+hist(sresid, freq=FALSE,
+     main="Distribution of Studentized Residuals")
+xfit4<-seq(min(sresid),max(sresid),length=40)
+yfit4<-dnorm(xfit4)
+lines(xfit4, yfit4)
+#residuals not very normally distributed and have outliers:(rows)7,10,17,20
+
+#predict
+predicted_values <- predict(fit4, newdata = test_data)
+actual_values <- test_data$GPA
+
+plot(actual_values, type = 'b', pch = 19, col = 'blue', ylim = c(min(c(actual_values, predicted_values)), max(c(actual_values, predicted_values))), xlab = "Observation", ylab = "GPA", main = "Actual vs Predicted GPA")
+lines(predicted_values, type = 'b', pch = 17, col = 'red')
+legend("topright", legend = c("Actual", "Predicted"), col = c("blue", "red"), pch = c(19, 17), lty = 1)
+
+#accuracy
+MSE <- mean((predicted_values - actual_values)^2)  #MSE=0.05936818
+RMSE <- sqrt(MSE)  #RMSE=0.2436559
+press_statistic <- sum((res / (1 - lm.influence(fit4)$hat))^2)  #PRESS=0.6042078
+tss <- sum((test_data$GPA - mean(test_data$GPA))^2)   #TSS=1.290556
+p_squared <- 1 - (press_statistic / tss)   #P^2=0.5318235
+
+#predictions are close to actual values
+
+```

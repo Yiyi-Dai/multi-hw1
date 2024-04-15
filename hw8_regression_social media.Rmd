@@ -1,0 +1,91 @@
+---
+title: "regression-social media"
+output: html_document
+date: "2024-04-08"
+---
+# Social Media
+```{r}
+library(readr)
+library(data.table)
+social_media<-read.csv("D:/Multivariate_analysis/MVA_CLASS_COMBINE_minutes.csv")
+str(social_media)
+
+```
+# Regression
+```{r}
+social_media$Mood_Productivity <- ifelse(social_media$Mood_Productivity == "Yes",1,0)
+social_media$Tired_waking_up <- ifelse(social_media$Tired_waking_up == "Yes",1,0)
+social_media$Trouble_falling_asleep <- ifelse(social_media$Trouble_falling_asleep == "Yes",1,0)
+
+# Performing multiple regression on social media dataset
+fit1 <- lm(How_felt~Ins_spent+Linkedin_spent+Snapchat_spent+Twitter_spent+Whatapps_and_Wechat_spent+Youtube_spent+OTT_spent+Reddit_spent+job_interview_calls_received+networking_with_coffee_chats+learning_items+Mood_Productivity+Tired_waking_up+Trouble_falling_asleep, data=social_media)
+
+#show the results
+summary(fit1)
+
+#show the results
+summary(fit1)
+
+#p(multiple)=0.00615<0.05, significant
+#p(Linkedin_spent)= 0.01490, p(Snapchat_spent)= 0.00874, p(learning_items)= 0.03024, p(Trouble_falling_asleep)=0.04051, significant
+#p(Youtube_spent)=0.05768, p(job_interview_calls_received)=0.08537, not very significant.
+#Residual standard error=0.4444 on 6 degrees of freedom,indicating that the mean difference between predicted values and actual values is 0.4444. Maybe due to too small sample and too many variables.
+#R-squared value is 0.892, indicating that the model can explain about 89.2% of the variability in the dependent variable (How_felt).
+
+#take out the variable with maximum p value: networking_with_coffee_chats(0.70486)
+fit2 <- lm(How_felt~Ins_spent+Linkedin_spent+Snapchat_spent+Twitter_spent+Whatapps_and_Wechat_spent+Youtube_spent+OTT_spent+Reddit_spent+job_interview_calls_received+learning_items+Mood_Productivity+Tired_waking_up+Trouble_falling_asleep, data=social_media)
+summary(fit2)
+
+#take out the variable with maximum p value: Ins_spent(0.66365)
+fit3 <- lm(How_felt~Linkedin_spent+Snapchat_spent+Twitter_spent+Whatapps_and_Wechat_spent+Youtube_spent+OTT_spent+Reddit_spent+job_interview_calls_received+learning_items+Mood_Productivity+Tired_waking_up+Trouble_falling_asleep, data=social_media)
+summary(fit3)
+
+#take out the variable with maximum p value: Mood_Productivity(0.68406)
+fit4 <- lm(How_felt~Linkedin_spent+Snapchat_spent+Twitter_spent+Whatapps_and_Wechat_spent+Youtube_spent+OTT_spent+Reddit_spent+job_interview_calls_received+learning_items+Tired_waking_up+Trouble_falling_asleep, data=social_media)
+summary(fit4)
+
+#take out the variable with maximum p value: OTT_spent(0.218427)
+fit5 <- lm(How_felt~Linkedin_spent+Snapchat_spent+Twitter_spent+Whatapps_and_Wechat_spent+Youtube_spent+Reddit_spent+job_interview_calls_received+learning_items+Tired_waking_up+Trouble_falling_asleep, data=social_media)
+summary(fit5)
+
+#Reddit_spent(0.098085) is not significant.
+#retain the rest 10 variables
+#p(multiple)=2.28e-05<0.05, significant
+#Residual standard error=0.3908 on 10 degrees of freedom,indicating that the mean difference between predicted values and actual values is 0.3908.
+#R-squared value is 0.8608, indicating that the model can explain about 86.08% of the variability in the dependent variable (How_felt).
+plot(fit5)
+
+#residual analysis
+library(car)
+res<-residuals(fit5)
+plot(res)   #almost between -0.4 and 0.6
+#normality of Residuals
+#qq plot for studentized resid
+qqPlot(fit5, main="QQ Plot")    #outliers:1,12
+#distribution of studentized residuals
+library(MASS)
+sresid <- studres(fit5)
+hist(sresid, freq=FALSE,
+     main="Distribution of Studentized Residuals")
+xfit5<-seq(min(sresid),max(sresid),length=40)
+yfit5<-dnorm(xfit5)
+lines(xfit5, yfit5)
+#residuals is almost normally distributed but have outliers(1,12)
+
+#predict hahah's felt
+hahah_felt<-predict.lm(fit5, data.frame(Linkedin_spent=180,Snapchat_spent=60,Twitter_spent=60,Whatapps_and_Wechat_spent=205,Youtube_spent=150, Reddit_spent=0,job_interview_calls_received=0,learning_items=3,Tired_waking_up=0,Trouble_falling_asleep=0))
+
+print(hahah_felt)
+#2.673584; actual value is 3
+
+#accuracy
+res<-residuals(fit5)
+mse<-mean(res^2)
+rmse <- sqrt(mse) 
+print(rmse)   #0.5183488
+#RMSE is 0.52 but dependent variable is between 0-5,so prediction is not very accurate.
+
+
+```
+
+
