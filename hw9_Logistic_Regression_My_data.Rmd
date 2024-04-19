@@ -1,0 +1,77 @@
+---
+title: "hw9_Logistic_Regression_Social_Media"
+output: html_document
+date: "2024-04-17"
+---
+# Data
+```{r}
+library(readr)
+library(data.table)
+data1 <- structure(list(
+  GPA = c(3.75, 4.0, 3.5, 3.75, 3.6, 3.2, 2.8, 3.75, 4.0, 3.9, 3.4, 3.0, 3.0, 3.9, 3.8, 3.3, 3.4, 3.75, 3.9, 3.5, 3.75, 3.9, 4.0, 3.2, 3.75, 3.8, 3.6, 3.1, 3.3, 2.9),
+  Gender = c("F", "F", "M", "F", "M", "M", "M", "F", "F", "F", "M", "F", "M", "M", "M", "M", "M", "F", "M", "M", "F", "M", "M", "M", "M", "F", "M", "F", "F", "M"),
+  English_Level = c(92, 100, 89, 98, 89, 94, 84, 102, 110, 105, 93, 90, 85, 99, 83, 90, 91, 100, 106, 95, 98, 94, 105, 85, 99, 99, 90, 92, 93, 86),
+  Social_Integration = c(5, 2, 1, 3, 2, 3, 10, 7, 5, 4, 4, 9, 1, 1, 3, 2, 2, 5, 4, 3, 4, 3, 3, 9, 3, 4, 4, 1, 1, 1),
+  Study_Hours_Per_Week = c(15, 20, 1, 12, 6, 6, 5, 18, 12, 14, 10, 8, 4, 19, 10, 5, 6, 10, 15, 13, 14, 16, 18, 6, 10, 12, 16, 4, 3, 2),
+  Mental_Health = c(4, 3, 3, 4, 2, 3, 2, 4, 4, 5, 3, 4, 1, 2, 2, 4, 3, 3, 4, 2, 5, 4, 5, 1, 3, 4, 2, 1, 2, 1),
+  Social_Media_Hours_Per_Week = c(20, 10, 18, 16, 13, 20, 15, 16, 12, 22, 15, 24, 5, 4, 15, 25, 23, 15, 18, 15, 13, 16, 12, 24, 18, 12, 14, 28, 13, 22),
+  Gaming_Hours_Per_Week = c(10, 6, 5, 10, 8, 3, 15, 8, 2, 5, 14, 10, 12, 7, 5, 16, 18, 8, 5, 2, 13, 5, 4, 12, 6, 8, 12, 14, 15, 20),
+  Sport_Hours_Per_Week = c(2, 10, 40, 14, 7, 7, 14, 5, 3, 12, 10, 0, 8, 0, 2, 8, 10, 9, 8, 0, 2, 3, 5, 0, 5, 7, 7, 1, 2, 0)
+), class = "data.frame",row.names = c(NA, -30L))
+str(data1)
+
+#turn to binary variable
+data1$GPA <- ifelse(data1$GPA <= 3.5, 1, 0) #positive<-0;high_GPA
+#data1$GPA <- ifelse(data1$GPA == 0, yes="high_GPA", no="low_GPA") 
+data1$GPA <- as.factor(data1$GPA)
+data1$Gender <- as.factor(data1$Gender)
+str(data1)
+
+#Logistic Regression
+#simple logistic regression
+xtabs(~ GPA + Gender, data=data1)
+simple_logistic <- glm(GPA ~ Gender, data = data1, family = "binomial")
+summary(simple_logistic)
+#The model suggests that women are more likely to have higher GPAs than men(Intercept=1.0986 and GenderM=0.-8755).
+#However,p-value>0.05(is too high),indicating a lack of significance.
+#We cannot trust the factor of genders in determining GPA levels.The result is possibly influenced by sample size or other variables which are not included.
+
+#Multiple logistic regression
+#Use retained variables from hw8(multiple regression)
+multiple_logistic <- glm(GPA ~ Social_Integration+Study_Hours_Per_Week+Mental_Health+Gaming_Hours_Per_Week, data = data1, family = "binomial")
+summary(multiple_logistic)
+#p=0.756;take away Mental_Health
+multiple_logistic2 <- glm(GPA ~ Social_Integration+Study_Hours_Per_Week+Gaming_Hours_Per_Week, data = data1, family = "binomial")
+summary(multiple_logistic2)
+#take away social integration
+multiple_logistic3 <- glm(GPA ~ Study_Hours_Per_Week+Gaming_Hours_Per_Week, data = data1, family = "binomial")
+summary(multiple_logistic3)
+#p=0.6148,not significant, but p(Study_Hours_Per_Week) and p(Gaming_Hours_Per_Week)<0.05
+
+#residual analysis
+library(car)
+res<-residuals(multiple_logistic3)
+plot(res)   #almost between -1 and 1(one is at -2)
+library(MASS)
+sresid <- studres(multiple_logistic3)
+hist(sresid, freq=FALSE,
+     main="Distribution of Studentized Residuals")
+xmultiple_logistic3<-seq(min(sresid),max(sresid),length=40)
+ymultiple_logistic3<-dnorm(xmultiple_logistic3)
+lines(xmultiple_logistic3, ymultiple_logistic3)
+#residuals not very normally distributed.
+
+#Predict
+predict_probs <- predict(multiple_logistic3, type = "response",newdata = data1)
+predict_probs
+predicted_levels <- as.factor(ifelse(predict_probs > 0.5,1,0))
+predicted_levels
+data1$GPA
+library(caret)
+confusionMatrix(predicted_levels, data1$GPA)
+#Accuracy:0.93
+#ROC
+library(pROC)
+roc(data1$GPA,multiple_logistic3$fitted.values,plot=TRUE, legacy.axes=TRUE, xlab="False Positive Percentage", ylab="True Postive Percentage", col="#377eb8", lwd=4)
+
+```

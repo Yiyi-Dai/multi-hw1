@@ -1,0 +1,70 @@
+---
+title: "hw9_Logistic_Regression_Social_Media"
+output: html_document
+date: "2024-04-18"
+---
+# Social Media
+```{r}
+library(readr)
+library(data.table)
+social_media<-read.csv("D:/Multivariate_analysis/MVA_CLASS_COMBINE_minutes.csv")
+str(social_media)
+
+#turn to binary variable
+social_media$Mood_Productivity <- as.factor(social_media$Mood_Productivity)
+social_media$Tired_waking_up <- as.factor(social_media$Tired_waking_up)
+social_media$Trouble_falling_asleep <- as.factor(social_media$Trouble_falling_asleep)
+str(social_media)
+
+#Logistic Regression
+#simple logistic regression
+#How is the relationship between mood productivity and sleep quality?
+xtabs(~ Mood_Productivity + Trouble_falling_asleep, data=social_media)
+simple_logistic <- glm(Mood_Productivity ~ Trouble_falling_asleep, data = social_media, family = "binomial")
+summary(simple_logistic)
+#The model suggests that people who is easily to fall asleep are more likely to have good mood productivity(Intercept=2.565 and Trouble_falling_asleepYes=18.001).
+#p-value(0.0536)>0.05,which is not very significance.
+#We can trust the factor of Trouble_falling_asleep in determining mood productivity.
+
+#How is the relationship between sleep quality and other variables?
+
+#make a multi-regression keep significant variables
+#social_media$Mood_Productivity <- ifelse(social_media$Mood_Productivity == "Yes",1,0)
+#social_media$Tired_waking_up <- ifelse(social_media$Tired_waking_up == "Yes",1,0)
+#social_media$Trouble_falling_asleep <- ifelse(social_media$Trouble_falling_asleep == "Yes",1,0)
+#multiple <- lm(Trouble_falling_asleep~Linkedin_spent+Snapchat_spent+Trouble_falling_asleep+How_felt, data=social_media)
+#summary(multiple)
+#Multiple logistic regression
+multiple_logistic <- glm(Trouble_falling_asleep~Linkedin_spent+Snapchat_spent+How_felt, data=social_media, family = "binomial")
+summary(multiple_logistic)
+#Intercept=-12.38773, represents the log odds of having trouble falling asleep when all predictors are zero (theoretically not possible here due to the nature of the variables).
+#Linkedin_spent:-0.02080, For each additional unit of time spent on LinkedIn, the log odds of having trouble falling asleep decrease by 0.0208.However, this effect is not statistically significant (p = 0.0657), only marginally significant.
+#Snapchat_spent: 0.03741. For each additional unit of time spent on Snapchat, the log odds of having trouble falling asleep increase by 0.0374, with statistical significance (p = 0.0499), suggesting a positive correlation between Snapchat use and sleep difficulties.
+#How_felt: 3.69968, reflects the impact of users' feelings on trouble falling asleep, with an increase in one unit of feeling rating increasing the log odds of trouble sleeping by approximately 3.7, nearly reaching statistical significance (p = 0.0559), indicating that how users felt might affect their sleep quality to some extent.
+#The model suggests that people who spends more time on Linkedin and less on Snapchat is easily to fall asleep.
+#total p-value(0.0536)>0.05,which is not very significance. But p(Snapchat_spent)<0.05 and others'p values are close to 0.05.
+
+#residual analysis
+library(car)
+res<-residuals(multiple_logistic)
+res
+library(MASS)
+sresid <- studres(multiple_logistic)
+#hist(sresid, freq=FALSE,main="Distribution of Studentized Residuals")
+xmultiple_logistic<-seq(min(sresid),max(sresid),length=40)
+ymultiple_logistic<-dnorm(xmultiple_logistic)
+#lines(xmultiple_logistic, ymultiple_logistic)
+
+#Predict
+predict_probs <- predict(multiple_logistic,newdata = social_media, type = "response")
+predict_probs
+predicted_levels <- as.factor(ifelse(predict_probs > 0.5,1,0))
+predicted_levels
+social_media$Trouble_falling_asleep
+social_media$Trouble_falling_asleep <- as.factor(ifelse(predict_probs > 0.5,1,0))
+
+library(caret)
+confusionMatrix(predicted_levels, social_media$Trouble_falling_asleep)
+#Accuracy:1,over-fitted,perhaps due to the amall sample size
+
+```
