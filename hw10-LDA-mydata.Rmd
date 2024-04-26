@@ -1,0 +1,85 @@
+---
+title: "hw10-LDA-mydata"
+output: html_document
+date: "2024-04-23"
+---
+
+```{r}
+library(readr)
+library(data.table)
+data1<-read.csv("D:/Multivariate_analysis/hw1-data.csv")
+str(data1)
+```
+# LDA
+```{r}
+library(MASS)
+library(ggplot2)
+library(ROCR)
+library(dplyr)
+data1$GPA <- ifelse(data1$GPA <= 3.5, 1, 0) #positive<-0;high_GPA
+#data1$GPA <- ifelse(data1$GPA == 0, yes="high_GPA", no="low_GPA") 
+data1$GPA <- as.factor(data1$GPA)
+data1$Gender <- as.factor(data1$Gender)
+str(data1)
+
+# Split the data into training and test sets
+smp_size <- floor(0.75 * nrow(data1))
+train_ind <- sample(nrow(data1), size = smp_size)
+train_df <- as.data.frame(data1[train_ind, ])
+test_df <- as.data.frame(data1[-train_ind, ])
+
+#Training the data
+data1_lda <- lda(formula = train_df$GPA ~ ., data = train_df)
+data1_lda
+summary(data1_lda)
+#prior:2; 2 categories
+#means:18=9*2(variables and categories)
+print(data1_lda)
+#prior probabilities: 0:0.59, 1:0.41
+#English_Level, Social_Integration, Study_Hours_Per_Week and Mental_Health have a higher mean in group 0
+#Gaming_Hours_Per_Week has a higher mean in group 1
+#The coefficients of Mental_Health and Study_Hours_Per_Week are larger, which indicates that they play a large role in classification decisions
+#Barchart of coefficients
+coef_df <- as.data.frame(data1_lda$scaling)
+names(coef_df) <- c("LD1")
+coef_df$Variable <- rownames(coef_df)
+library(ggplot2)
+ggplot(coef_df, aes(x = Variable, y = LD1, fill = LD1)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(title = "Coefficients of Linear Discriminants",
+       x = "Variables",
+       y = "Coefficient Value") +
+  coord_flip()  
+
+#predict(data1_lda)
+data1_lda_predict <- predict(data1_lda, newdata = test_df)
+data1_lda_predict$class
+data1_lda_predict$x
+
+#Confusion matrix
+conf_matrix <- table(predicted = data1_lda_predict$class, actual = test_df$GPA)
+accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+print(paste("Accuracy: ", accuracy))
+
+melted_conf_matrix <- melt(as.matrix(conf_matrix), varnames = c("Predicted", "Actual"))
+ggplot(data = melted_conf_matrix, aes(x = Actual, y = Predicted, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "lightblue", high = "lightgray") +
+  geom_text(aes(label = value), vjust = 1.5, color = "white") +
+  labs(title = "Confusion Matrix", x = "Actual Class", y = "Predicted Class")
+
+#posterior probability
+data1_lda_predict_posteriors <- as.data.frame(data1_lda_predict$posterior)
+
+#ROC and AUC
+pred <- prediction(data1_lda_predict_posteriors[,2], test_df$GPA)
+roc_perf = performance(pred, measure = "tpr", x.measure = "fpr")
+auc_train <- performance(pred, measure = "auc")
+auc_train <- auc_train@y.values
+plot(roc_perf)
+abline(a=0, b= 1)
+text(x = .25, y = .65 ,paste("AUC = ", round(auc_train[[1]],3), sep = ""))
+
+```
+

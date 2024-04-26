@@ -1,0 +1,88 @@
+---
+title: "hw10-LDA-mydata"
+output: html_document
+date: "2024-04-23"
+---
+
+```{r}
+library(readr)
+library(data.table)
+social_media<-read.csv("D:/Multivariate_analysis/MVA_CLASS_COMBINE_minutes.csv")
+str(social_media)
+```
+# LDA
+```{r}
+library(MASS)
+library(ggplot2)
+library(ROCR)
+library(dplyr)
+
+#turn to binary variable
+social_media$Mood_Productivity <- as.factor(social_media$Mood_Productivity)
+social_media$Tired_waking_up <- as.factor(social_media$Tired_waking_up)
+social_media$Trouble_falling_asleep <- as.factor(social_media$Trouble_falling_asleep)
+str(social_media)
+
+# Split the data into training and test sets
+smp_size <- floor(0.75 * nrow(social_media))
+train_ind <- sample(nrow(social_media), size = smp_size)
+train_df <- as.data.frame(social_media[train_ind, ])
+test_df <- as.data.frame(social_media[-train_ind, ])
+str(train_df)
+
+#Training the data
+social_media_lda <- lda(formula = train_df$Trouble_falling_asleep~ How_felt+Ins_spent+Linkedin_spent+Snapchat_spent+Twitter_spent+Whatapps_and_Wechat_spent+Youtube_spent+OTT_spent+Reddit_spent+job_interview_calls_received+networking_with_coffee_chats+learning_items+Mood_Productivity+Tired_waking_up , data = train_df)
+social_media_lda
+summary(social_media_lda)
+#prior:2; 2 categories
+#means:28
+print(social_media_lda)
+#prior probabilities: 0:0.6, 1:0.4
+#Twitter_spent and Whatapps_and_Wechat_spent has a higher mean in group 0(easy to fall asleep)
+#Ins_spent, Linkedin_spent, Snapchat_spent,Youtube_spent, OTT_spent job_interview_calls_received  have a higher mean in group 1(hard to fall asleep)
+#The coefficients of Tired_waking_upYes and job_interview_calls_received indicates that they play a large role in classification decisions
+#Barchart of coefficients
+coef_df <- as.data.frame(social_media_lda$scaling)
+names(coef_df) <- c("LD1")
+coef_df$Variable <- rownames(coef_df)
+
+library(ggplot2)
+ggplot(coef_df, aes(x = Variable, y = LD1, fill = LD1)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(title = "Coefficients of Linear Discriminants",
+       x = "Variables",
+       y = "Coefficient Value") +
+  coord_flip()  
+
+#predict(data1_lda)
+social_media_lda_predict <- predict(social_media_lda, newdata = test_df)
+social_media_lda_predict$class
+social_media_lda_predict$x
+
+#Confusion matrix
+conf_matrix <- table(predicted = social_media_lda_predict$class, actual = test_df$Trouble_falling_asleep)
+accuracy <- sum(diag(conf_matrix)) / sum(conf_matrix)
+print(paste("Accuracy: ", accuracy))
+
+melted_conf_matrix <- melt(as.matrix(conf_matrix), varnames = c("Predicted", "Actual"))
+ggplot(data = melted_conf_matrix, aes(x = Actual, y = Predicted, fill = value)) +
+  geom_tile(color = "white") +
+  scale_fill_gradient(low = "lightblue", high = "lightgreen") +
+  geom_text(aes(label = value), vjust = 1.5, color = "white") +
+  labs(title = "Confusion Matrix", x = "Actual Class", y = "Predicted Class")
+
+#posterior probability
+social_media_lda_predict_posteriors <- as.data.frame(social_media_lda_predict$posterior)
+
+#ROC and AUC
+pred <- prediction(social_media_lda_predict_posteriors[,2], test_df$Trouble_falling_asleep)
+roc_perf = performance(pred, measure = "tpr", x.measure = "fpr")
+auc_train <- performance(pred, measure = "auc")
+auc_train <- auc_train@y.values
+plot(roc_perf)
+abline(a=0, b= 1)
+text(x = .25, y = .65 ,paste("AUC = ", round(auc_train[[1]],3), sep = ""))
+
+```
+
