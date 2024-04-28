@@ -1,0 +1,377 @@
+---
+title: "regression_mydata"
+output: html_document
+date: "2024-04-11"
+---
+# Data Collection and Preprocessing
+Collect data from the class.
+Converts all Null to 0.
+Convert all time formats to minutes.
+```{r}
+library(readr)
+library(data.table)
+social_media<-read.csv("D:/Multivariate_analysis/MVA_CLASS_COMBINE_minutes.csv")
+str(social_media)
+```
+# Exploratory Data Analysis and Visualizations
+```{r}
+summary(social_media)
+library(ggplot2)
+library(dplyr)
+social_media
+
+#Boxplot of variables
+boxplot(social_media$Ins_spent, main="Boxplot of Ins_spent")
+#Median is close to 300(5h).
+boxplot(social_media$Linkedin_spent, main="Boxplot of Linkedin_spent")
+#Median is close to 240(4h).
+
+#Stars Plot
+data_numeric <- social_media[, sapply(social_media, is.numeric)]
+stars(data_numeric[,c(1:8)], labels = social_media$Group, main = "Star Plot of social_media")
+#Shows the time for each student spending on each app
+
+#Distribution of How_felt
+ggplot(social_media, aes(x = How_felt)) +
+  geom_bar(fill = "lightblue",color = "white") +
+  ggtitle("Distribution of How_felt")
+#Most of students have 3 scores of how feeling. 
+
+#Barchart of Trouble_falling_asleep
+ggplot(social_media, aes(x = Trouble_falling_asleep)) +
+  geom_bar(fill = "#008080") +
+  labs(title = "Number of People with Trouble Falling Asleep", x = "Trouble Falling Asleep", y = "Number of People")
+#People who have trouble falling asleep are twice as likely as those who don't.
+
+#Scatter Plot
+#Relationship between Linkedin_spent and job_interview_calls_received 
+ggplot(social_media, aes(x = Linkedin_spent, y = job_interview_calls_received)) +
+  geom_point() +
+  ggtitle("Relationship between Linkedin_spent and job_interview_calls_received")
+#Those who get interview spend at least 300min(5h) on Linkedin per week.
+
+#Calculate the number of users for each platform
+user_counts <- data.frame(Platform = c("Instagram", "Linkedin", "Snapchat", "Twitter","Whatsapp_Wechat", "Youtube", "OTT", "Reddit"),
+                          Users = c(sum(social_media$Instagram == "Yes", na.rm = TRUE),
+                                    sum(social_media$Linkedin == "Yes", na.rm = TRUE),
+                                    sum(social_media$Snapchat == "Yes", na.rm = TRUE), 
+                                    sum(social_media$Twitter == "Yes", na.rm = TRUE),
+                                    sum(social_media$Whatsapp_Wechat == "Yes", na.rm = TRUE),
+                                    sum(social_media$Youtube == "Yes", na.rm = TRUE),
+                                    sum(social_media$OTT_Netflix_Hulu_Primevideo == "Yes", na.rm = TRUE),
+                                    sum(social_media$Reddit == "Yes", na.rm = TRUE)))
+#Calculate average usage time for each platform
+average_times <- data.frame(Platform = c("Instagram", "Linkedin", "Snapchat", "Twitter","Whatsapp_Wechat", "Youtube", "OTT", "Reddit"),
+                            AverageTime = c(mean(social_media$Ins_spent, na.rm = TRUE),
+                                            mean(social_media$Linkedin_spent, na.rm = TRUE),
+                                            mean(social_media$Snapchat_spent, na.rm = TRUE),
+                                            mean(social_media$Twitter_spent, na.rm = TRUE),
+                                            mean(social_media$Whatsapp_and_Wechat_spent, na.rm = TRUE),
+                                            mean(social_media$Youtube_spent, na.rm = TRUE),
+                                            mean(social_media$OTT_spent, na.rm = TRUE),
+                                            mean(social_media$Reddit_spent, na.rm = TRUE)))
+#Number of users per platform
+ggplot(user_counts, aes(x = Platform, y = Users, fill = Platform))+
+  geom_bar(stat = "identity")+
+  theme_minimal()+
+  labs(title = "Number of Users per Platform", x = "Platform", y = "Number of Users")+
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+#Instagram, Linkedin, Whatsapp/Wechat and Youtube have most users.
+#Average usage time per platform
+ggplot(average_times, aes(x = Platform, y = AverageTime, fill = Platform)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(title = "Average Usage Time per Platform", x = "Platform", y = "Average Time (minutes)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+#Students spend most of time on Whatsapp/wechat and Instagram.
+```
+# PCA
+```{r}
+#Compute the principal components
+data_numeric <- data_numeric[, sapply(data_numeric, function(x) var(x, na.rm = TRUE) != 0)]
+data_scaled <- scale(data_numeric)
+classcov <- cor(data_scaled)
+data_pca <- prcomp(data_numeric,scale=TRUE) 
+data_pca
+summary(data_pca)
+#Eigenvalues
+eigen_data <- data_pca$sdev^2
+names(eigen_data) <- paste("PC",1:12,sep="")
+eigen_data
+sumlambdas <- sum(eigen_data)
+sumlambdas
+#Proportion of Variance Explained
+propvar <- eigen_data/sumlambdas
+propvar
+#Cumulative Proportion of Variance Explained
+cumvar_data <- cumsum(propvar)
+cumvar_data
+#Create a table of explained variance
+matlambdas <- rbind(eigen_data,propvar,cumvar_data)
+rownames(matlambdas) <- c("Eigenvalues","Prop.variance","Cum. prop.variance")
+round(matlambdas,4)   
+
+#The first four principal components (PC1, PC2, PC3 and PC4) have eigenvalues greater than 1;
+#The cumulative variance explained by the first six principal components amounts to 85.16%, which already surpasses the 85%.
+#Keep PC1,PC2,PC3,PC4,PC5,PC6; 6 components.
+
+#Log(eigenvalue) diagram
+plot(log(eigen_data), xlab = "Component number",ylab = "log(Component variance)", type="l",main = "Log(eigenvalue) diagram")
+
+#Scree plot
+library(factoextra)
+fviz_eig(data_pca, addlabels = TRUE)
+#The first principal component catch the most information of data,with the percentage of 28.7%.
+#The percentage of variance explained by the second principal component sees a significant drop, and then the variance explained by subsequent components gradually levels off.
+
+#Rotation matrix 
+data_pca$rotation
+
+#PC1 is positively associated with Ins_spent, Linkedin_spent, Snapchat_spent, Youtube_spent and OTT_spent. On the contrary, PC1 is negative correlated with Twitter_spent, Whatapps_and_Wechat_spent and Reddit_spent.
+#The variable with the largest contribution to PC1 is Snapchat_spent(0.47995436) and the least contribution is Reddit_spent(-0.03673098).
+#PC2 is positively associated with How_felt and learning_items,suggesting PC2 maybe capture the link of happiness and learning new things.
+#Whatapps_and_Wechat_spent has a high negative loading on PC3(-0.55150308),indicating it is negatively associated with PC3.
+#PC4 capture more information about networking_with_coffee_chats(0.613829038).
+#Ins_spent(-0.41263669) and Reddit_spent(0.71562118) have contrary performance on PC5.
+#Except Ins_spent,Reddit_spent,job_interview_calls_received, other variable have positive contribution on PC6.
+
+# Other visualization
+#Biplot of individuals and variables
+fviz_pca_var(data_pca,col.var = "cos2",
+             gradient.cols = c("#FFCC00", "#CC9933", "#660033", "#330033"),
+             repel = TRUE)
+#The arrows for Linkedin_spent and job_interview_calls_received point towards the first quadrant, indicating they have positive loadings on both PC1 and PC2, suggesting a positive correlation with these components.
+
+#Twitter_spent and Reddit_spent point towards the third quadrant, showing negative loadings on both PC1 and PC2, suggesting they are inversely related to the first two principal components. 
+
+#Whatapps_and_Wechat_spent and learning_items point to the left, indicating negative loadings on PC1, contrasting with Snapchat_spent and Ins_spent. 
+
+#The proximity of the arrows for Snapchat_spent and Ins_spent may suggest a positive correlation between these variables in the dataset. 
+#Conversely, the opposing directions of the arrows for Whatapps_and_Wechat_spent and OTT_spent may indicate a negative correlation between these aspects.
+
+#Individuals Factor Map
+fviz_pca_ind(data_pca, col.ind = "cos2", 
+                  gradient.cols = c("#FFCC00", "#CC9933", "#660033", "#330033"), 
+                  repel = TRUE)
+#"Harvey" has an extremely high positive score on PC1 and a lower score on PC2, and its color indicates a very high contribution on PC1.
+#"Bunny" and "vp1234" also have high scores on PC1, but not as extreme as "Harvey".
+#"masini" and "AKIRA" have negative scores on PC1 and also negative scores or scores close to zero on PC2.
+#Most individuals are concentrated in the central area of the ploy, which means that their scores on PC1 and PC2 are relatively average.
+
+```
+
+# Clustering
+```{r}
+# Hierarchical clustering
+library(cluster)
+library(factoextra)
+library(NbClust)
+rownames(social_media) <- social_media$character_id
+
+#Standardize
+data_numeric<-social_media[, c("Ins_spent","Linkedin_spent","Snapchat_spent","Twitter_spent","Whatsapp_and_Wechat_spent","Youtube_spent","OTT_spent","Reddit_spent","job_interview_calls_received","networking_with_coffee_chats","learning_items","How_felt")]
+data_scaled <- scale(data_numeric)
+#Distance matrix
+dist.mat <- dist(data_scaled, method="euclidean")
+
+#Average Silhouette Method
+library(cluster)
+sil_width <- numeric(9)
+for(k in 2:10) {
+  pam_result <- pam(data_scaled, k)
+  sil_width[k-1] <- pam_result$silinfo$avg.width
+}
+
+plot(2:10, sil_width, type = "b", xlab = "Number of Clusters", ylab = "Average Silhouette Width", main = "Average Silhouette Method")
+#The highest Average Silhouette Width provides the optimal segmentation of the data,which appears at the position of k=2 or 7. 
+
+#dendrogram
+hc <- hclust(dist.mat, method="single")
+fviz_dend(hc,k=7,cex = 0.5,color_labels_by_k = TRUE, rect = TRUE, ylab="Distance between students",main="Dendrogram of students")
+
+# Non-hierarchical(K-means)
+data_scaled <- scale(data_numeric)
+# Computing the percentage of variation accounted for 2-5 clusters 
+(kmeans2.data_socialmedia <- kmeans(data_scaled,2,nstart = 16))
+perc.var.2 <- round(100*(1 - kmeans2.data_socialmedia$betweenss/kmeans2.data_socialmedia$totss),1)
+names(perc.var.2) <- "Perc. 2 clus"
+
+(kmeans3.data_socialmedia <- kmeans(data_scaled,3,nstart = 16))
+perc.var.3 <- round(100*(1 - kmeans3.data_socialmedia$betweenss/kmeans3.data_socialmedia$totss),1)
+names(perc.var.3) <- "Perc. 3 clus"
+
+(kmeans4.data_socialmedia <- kmeans(data_scaled,4,nstart = 16))
+perc.var.4 <- round(100*(1 - kmeans4.data_socialmedia$betweenss/kmeans4.data_socialmedia$totss),1)
+names(perc.var.4) <- "Perc. 4 clus"
+
+(kmeans5.data_socialmedia <- kmeans(data_scaled,5,nstart = 16))
+perc.var.5 <- round(100*(1 - kmeans5.data_socialmedia$betweenss/kmeans5.data_socialmedia$totss),1)
+names(perc.var.5) <- "Perc. 5 clus"
+
+perc.var.2
+perc.var.3
+perc.var.4
+perc.var.5
+
+Variance_List <- c(perc.var.2,perc.var.3,perc.var.4,perc.var.5)
+plot(Variance_List)
+
+#Compute optimal number of factors
+wss <- sapply(1:10, function(k){kmeans(data_scaled, k, nstart = 10)$tot.withinss})
+plot(1:10, wss, type = "b", xlab = "Number of Clusters", ylab = "Within groups sum of squares")
+#After k=4,line goes to flatten.
+
+#Execute kmeans,set k=4
+set.seed(123)
+k_optimal <- 4
+km <- kmeans(data_scaled, centers = k_optimal, nstart = 20)
+# Visualize
+fviz_cluster(km, data = data_scaled,
+             ellipse.type = "convex",
+             palette = "jco",
+             ggtheme = theme_minimal())
+#The yellow cluster (marked as 2) covers the largest area and its data points are relatively scattered.
+#The blue cluster (marked as 1) and the red cluster (marked as 4) are more concentrated.
+#The gray cluster (marked as 3) has only two data point, which is far apart from the other clusters.
+
+```
+
+# Factor Analysis
+```{r}
+library(psych)
+#Factor recommendations
+
+fa.parallel(data_numeric)
+#RC1 and RC2 is significant.
+vss(data_numeric)  
+#The first three factors are sufficient, as there is no significant improvement in the model fit beyond 3 factors.
+#choose 3 factors
+
+#Factor analysis
+fit.pc <- principal(data_numeric, nfactors=3, rotate="varimax")
+print(fit.pc) 
+
+fa.plot(fit.pc) # See Correlations within Factors
+fa.diagram(fit.pc) # Visualize the relationship
+
+#Loading matrix
+print(fit.pc$loadings,cutoff=0.3)
+#Ins_spent, Linkedin_spent, Snapchat_spentGPA Youtube_spent and OTT_spent have high positive loadings on Factor RC1, indicating they are highly related to RC1. Espercially, Snapchat_spent has an extremely high loading on Factor RC1(0.928), indicating an almost perfect correlation. Networking_with_coffee_chats and learning_items has a negative loading on Factor RC1, but this relationship is relatively weaker.
+#Twitter_spent and Whatapps_and_Wechat_spent both have a high loading on Factor RC3, but the former one has a positive loading and the latter one has negative one.
+#job_interview_calls_received and How_felt is primarily related to Factor RC2.
+#Reddit_spent has a positive loading on Factor RC3(0.359), but has a negative loading on RC2(-0.386).
+
+#Communalities
+loadings_squared <- fit.pc$loadings^2
+communalities <- rowSums(loadings_squared)
+print(communalities)
+#The high communality values indicate that the model captures a significant portion of the variance for most of the variables. Especially for Social_Integration and Sport_Hours_Per_Week, their high communalities suggest a strong correlation with the factors. As for Gaming_Hours_Per_Week, its lower communality maybe imply that there are other factors affecting gaming time that are not captured by the factors in the model.
+
+#Rotated factor scores 
+scores <- factor.scores(data_numeric,fit.pc)$scores
+print(scores)
+#The person with the highest score on factor RC1 was Harvey
+#Baiqi had a very low score on the third factor (RC3) (-1.916020841), which may mean that Baiqi is lacking in the characteristics represented by this factor.
+```
+
+# Multiple Regression
+```{r}
+social_media$Mood_Productivity <- ifelse(social_media$Mood_Productivity == "Yes",1,0)
+social_media$Tired_waking_up <- ifelse(social_media$Tired_waking_up == "Yes",1,0)
+social_media$Trouble_falling_asleep <- ifelse(social_media$Trouble_falling_asleep == "Yes",1,0)
+
+# Performing multiple regression on social media dataset
+fit1 <- lm(How_felt~Ins_spent+Linkedin_spent+Snapchat_spent+Twitter_spent+Whatsapp_and_Wechat_spent+Youtube_spent+OTT_spent+Reddit_spent+job_interview_calls_received+networking_with_coffee_chats+learning_items+Mood_Productivity+Tired_waking_up+Trouble_falling_asleep, data=social_media)
+
+#show the results
+summary(fit1)
+
+#p(multiple)=0.00615<0.05, significant
+#p(Linkedin_spent)= 0.01490, p(Snapchat_spent)= 0.00874, p(learning_items)= 0.03024, p(Trouble_falling_asleep)=0.04051, significant
+#p(Youtube_spent)=0.05768, p(job_interview_calls_received)=0.08537, not very significant.
+#Residual standard error=0.4444 on 6 degrees of freedom,indicating that the mean difference between predicted values and actual values is 0.4444. Maybe due to too small sample and too many variables.
+#R-squared value is 0.892, indicating that the model can explain about 89.2% of the variability in the dependent variable (How_felt).
+plot(fit1)
+
+#residual analysis
+library(car)
+res<-residuals(fit1)
+plot(res)   #almost between -0.4 and 0.6
+
+#predict hahah's felt
+hahah_felt<-predict.lm(fit1, data.frame(Ins_spent=360, Linkedin_spent=180, Snapchat_spent=60, Twitter_spent=60,Whatsapp_and_Wechat_spent=205,Youtube_spent=150, OTT_spent=60, Reddit_spent=0, job_interview_calls_received=0,networking_with_coffee_chats=0, learning_items=3, Mood_Productivity=1,Tired_waking_up=0,Trouble_falling_asleep=0))
+
+print(hahah_felt)
+#3.10; actual value is 3, very close to actual value
+
+#accuracy
+res<-residuals(fit1)
+mse<-mean(res^2)
+rmse <- sqrt(mse) 
+print(rmse)   #0.50
+#RMSE is 0.5 but dependent variable is between 0-5,so prediction is not very accurate.
+```
+
+# Logistic Regression
+```{r}
+library(readr)
+library(data.table)
+social_media<-read.csv("D:/Multivariate_analysis/MVA_CLASS_COMBINE_minutes.csv")
+str(social_media)
+#turn to binary variable
+social_media$Mood_Productivity <- as.factor(social_media$Mood_Productivity)
+social_media$Tired_waking_up <- as.factor(social_media$Tired_waking_up)
+social_media$Trouble_falling_asleep <- as.factor(social_media$Trouble_falling_asleep)
+str(social_media)
+
+#Logistic Regression
+#simple logistic regression
+#How is the relationship between mood productivity and sleep quality?
+xtabs(~ Mood_Productivity + Trouble_falling_asleep, data=social_media)
+simple_logistic <- glm(Mood_Productivity ~ Trouble_falling_asleep, data = social_media, family = "binomial")
+summary(simple_logistic)
+#The model suggests that people who is easily to fall asleep are more likely to have good mood productivity(Intercept=2.565 and Trouble_falling_asleepYes=18.001).
+#p-value(0.0536)>0.05,which is not very significance.
+#We can trust the factor of Trouble_falling_asleep in determining mood productivity.
+
+#How is the relationship between sleep quality and other variables?
+
+#make a multi-regression keep significant variables
+#social_media$Mood_Productivity <- ifelse(social_media$Mood_Productivity == "Yes",1,0)
+#social_media$Tired_waking_up <- ifelse(social_media$Tired_waking_up == "Yes",1,0)
+#social_media$Trouble_falling_asleep <- ifelse(social_media$Trouble_falling_asleep == "Yes",1,0)
+#multiple <- lm(Trouble_falling_asleep~Linkedin_spent+Snapchat_spent+Trouble_falling_asleep+How_felt, data=social_media)
+#summary(multiple)
+#Multiple logistic regression
+multiple_logistic <- glm(Trouble_falling_asleep~Linkedin_spent+Snapchat_spent+How_felt, data=social_media, family = "binomial")
+summary(multiple_logistic)
+#Intercept=-12.38773, represents the log odds of having trouble falling asleep when all predictors are zero (theoretically not possible here due to the nature of the variables).
+#Linkedin_spent:-0.02080, For each additional unit of time spent on LinkedIn, the log odds of having trouble falling asleep decrease by 0.0208.However, this effect is not statistically significant (p = 0.0657), only marginally significant.
+#Snapchat_spent: 0.03741. For each additional unit of time spent on Snapchat, the log odds of having trouble falling asleep increase by 0.0374, with statistical significance (p = 0.0499), suggesting a positive correlation between Snapchat use and sleep difficulties.
+#How_felt: 3.69968, reflects the impact of users' feelings on trouble falling asleep, with an increase in one unit of feeling rating increasing the log odds of trouble sleeping by approximately 3.7, nearly reaching statistical significance (p = 0.0559), indicating that how users felt might affect their sleep quality to some extent.
+#The model suggests that people who spends more time on Linkedin and less on Snapchat is easily to fall asleep.
+#total p-value(0.0536)>0.05,which is not very significance. But p(Snapchat_spent)<0.05 and others'p values are close to 0.05.
+
+#residual analysis
+library(car)
+res<-residuals(multiple_logistic)
+res
+library(MASS)
+sresid <- studres(multiple_logistic)
+#hist(sresid, freq=FALSE,main="Distribution of Studentized Residuals")
+xmultiple_logistic<-seq(min(sresid),max(sresid),length=40)
+ymultiple_logistic<-dnorm(xmultiple_logistic)
+#lines(xmultiple_logistic, ymultiple_logistic)
+
+#Predict
+predict_probs <- predict(multiple_logistic,newdata = social_media, type = "response")
+predict_probs
+predicted_levels <- as.factor(ifelse(predict_probs > 0.5,1,0))
+predicted_levels
+social_media$Trouble_falling_asleep
+social_media$Trouble_falling_asleep <- as.factor(ifelse(predict_probs > 0.5,1,0))
+
+library(caret)
+confusionMatrix(predicted_levels, social_media$Trouble_falling_asleep)
+#Accuracy:1,over-fitted,perhaps due to the a small sample size
+```
