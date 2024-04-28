@@ -1,0 +1,337 @@
+---
+title: "regression_mydata"
+output: html_document
+date: "2024-04-11"
+---
+# Question: What is the relationship between GPA of international students and other variables?
+
+# Data Collection
+Questionnaires have sent out to some international students from China.
+At first, only 30 valid questionnaires were collected.
+But for clustering and regression analysis, the sample size was too small, so dozens more data were collected.
+The final dataset contains 102 rows of 10 variables.
+```{r}
+library(readr)
+library(data.table)
+data1<-read.csv("D:/Multivariate_analysis/hw1-data.csv")
+str(data1)
+```
+# Exploratory Data Analysis and Visualizations
+```{r}
+summary(data1)
+library(ggplot2)
+library(dplyr)
+
+#Boxplot of variables
+boxplot(data1$GPA, main="Boxplot of GPA")
+#Median is close to 3.7; Q1 is 3.3; Q3 is 3.8.
+boxplot(data1$English_Level, main="Boxplot of English_Level")
+boxplot(data1[,3:9], main = "Boxplot of other variables")
+
+#Stars Plot
+numeric_data <- data1[, sapply(data1, is.numeric)]
+stars(numeric_data, labels = data1$Group, main = "Star Plot of Data1")
+#Shows the data for each student on each variable
+
+#Distribution of GPA
+ggplot(data1, aes(x = GPA)) + 
+  geom_histogram(binwidth = 0.1, fill = "#008080", color = "white") +
+  ggtitle("Distribution of GPA")
+#Most of students have GPA from 3.6 to 4.0
+#Distribution of Mental_Health
+ggplot(data1, aes(x = Mental_Health)) +
+  geom_bar(fill = "lightblue",color = "white") +
+  ggtitle("Distribution of Mental_Health")
+#Surprisingly, more than one fifth people's mental health score is 2 or 1.It seems that the psychological problems of international students are really serious
+
+#Average of Study_Hours_Per_Week of different gender
+data1 %>%
+  group_by(Gender) %>%
+  summarise(Study_Hours_Per_Week = mean(Study_Hours_Per_Week))
+#F:9.64; M:9.49
+ggplot(data1, aes(x = Gender, y = Study_Hours_Per_Week, fill = Gender)) + 
+  geom_boxplot() +
+  ggtitle("Study Hours Per Week by Gender")
+#Study hours of female is more and concentrated
+
+#Average of Sleeping_Hours_Per_Day of different gender
+data1 %>%
+  group_by(Gender) %>%
+  summarise(Average_Sleep = mean(Sleeping_Hours_Per_Day))
+#F:7.1; M:7.3
+ggplot(data1, aes(x = Gender, y = Sleeping_Hours_Per_Day, fill = Gender)) +
+  stat_summary(fun = mean, geom = "bar") +
+  stat_summary(fun = mean, geom = "text", aes(label = round(..y.., 1)), vjust = -0.5) +
+  labs(title = "Average Sleeping Hours Per Day by Gender", x = "Gender", y = "Average Hours") +
+  theme_minimal()
+
+#simple regression
+attach(data1)
+plot(GPA~Gaming_Hours_Per_Week)
+abline(lm(GPA~Gaming_Hours_Per_Week), col="steelblue")
+#Students with very good grades usually don't spend more time playing games
+
+#hexbin
+ggplot(data1, aes(x=GPA, y=Social_Integration)) + geom_hex() 
+#Appropriate social engagement may be good for grades
+
+#density plot
+ggplot(data1, aes(x=Social_Integration)) + geom_density()
+#The number of social activities students participate in per week is concentrated between 3 and 5 times
+
+#Scatter Plot
+#Relationship between English Level and GPA
+ggplot(data1, aes(x = English_Level, y = GPA, color = Gender)) +
+  geom_point() +
+  ggtitle("Relationship between English Level and GPA")
+#We cannot see any clear correlation.
+
+#Relationship between Sleep Hours and GPA
+ggplot(data1, aes(x = Sleeping_Hours_Per_Day, y = GPA, color = GPA)) +
+  geom_point() + 
+  ggtitle("Relationship between Sleep Hours and GPA")
+#Students with higher GPA usually sleep 6-8 hours per day.
+
+#3d Scatter Plot
+attach(data1)
+library(scatterplot3d)
+s3d <- scatterplot3d(GPA,Study_Hours_Per_Week,Gaming_Hours_Per_Week,pch=c(1,16)[as.numeric(Gender)],xlab="GPA", ylab="Study_Hours_Per_Week", angle=45,zlab="Gaming_Hours_Per_Week", lty.hide=2,type="h",y.margin.add=0.1,font.axis=2,font.lab=2)
+legend(s3d$xyz.convert(238, 160, 34.1),c("F","M"),pch=c(1,16),text.font=2)
+#We would expect GPA to be correlated with study time and game time, but there is no clear trend or relationship in the 3d plot. 
+#Data points appear to be evenly distributed in space. Therefore, further statistical analysis is needed.
+
+```
+# Clustering
+```{r}
+library(cluster)
+library(NbClust)
+library(factoextra)
+
+#Standardize
+data_numeric <- data1[, -ncol(data1)]
+data_scaled <- scale(data_numeric)
+#Distance matrix
+dist.mat <- dist(data_scaled, method="euclidean")
+
+# Hierarchical clustering
+row.names(data1) <- 1:nrow(data1)
+#Use NbClust to compute optimal numbers of clusters
+#Complete linkage
+res.nbclust <- NbClust(data_scaled,distance = "euclidean", min.nc = 2, max.nc = 10, method = "complete", index ="all")
+#Based on the recult, 3 clusters might be the optimal number for this dataset.
+hc <- hclust(dist.mat, method="complete")
+#Visualization
+fviz_dend(hc,k=3,cex = 0.5,k_colors = c("#2E9FDF", "#00AFBB", "#E7B800"),color_labels_by_k = TRUE, rect = TRUE, ylab="Distance between students",main="Dendrogram of students")
+#Single linkage
+res.nbclust <- NbClust(data_scaled,distance = "euclidean", min.nc = 2, max.nc = 10, method = "single", index ="all")
+#Based on the recult, 3 clusters might be the optimal number for this dataset.
+hc <- hclust(dist.mat, method="complete")
+#Visualization
+fviz_dend(hc,k=9,cex = 0.5,color_labels_by_k = TRUE, rect = TRUE, ylab="Distance between students",main="Dendrogram of students")
+
+# Non-Hierarchical clustering
+#K-means
+#compute optimal numbers of clusters
+wss <- sapply(1:10, function(k){kmeans(data_scaled, k, nstart = 10)$tot.withinss})
+plot(1:10, wss, type = "b", xlab = "Number of Clusters", ylab = "Within groups sum of squares")
+#In the elbow plot, there is a marked change in the rate of decrease in within-group sum of squares at number 2. This inflection point suggests that 2 clusters is a potential optimal choice for the dataset. After that the line becomes flattened.
+set.seed(123)
+k_optimal <- 2
+km <- kmeans(data_scaled, centers = k_optimal, nstart = 16)
+#Visualize
+fviz_cluster(km, data = data_scaled,
+             ellipse.type = "convex",
+             palette = "jco",
+             ggtheme = theme_minimal())
+#The data set divided the students into two clusters. 
+#Students in cluster 1 (blue area) have similar characteristics on some variables, while students in cluster 2 (yellow area) may perform the opposite on these variables.
+#Calculate means in each cluster
+data_numeric$cluster <- km$cluster
+cluster_means <- aggregate(. ~ cluster, data = data_numeric, FUN = mean)
+print(cluster_means)
+#The mean of GPA in cluster 1 is 3.83 and in cluster 2 is 3.26.
+#Cluster 1 students have better academical performance and English level, they also and have better social integration and mental health.
+#In contrast, Cluster 2 students perform relatively poorly in GPA, English level, social integration and mental health, but spend more time on social media and gaming.
+
+```
+# Factor Analysis
+```{r}
+library(psych)
+data_numeric <- data1[, -ncol(data1)]
+#options(warn = -1)
+#Factor recommendations
+fa.parallel(data_numeric)
+#We can see the blue line going down under the red line at number of 3 
+#choose 3 factors
+#Factor analysis
+fit.pc <- principal(data_numeric, nfactors=3, rotate="varimax")
+print(fit.pc)  
+fa.diagram(fit.pc) # Visualize the relationship
+#"GPA","English_Level","Mental_Health","Study_Hours_Per_Week" are strongly positively correlated with RC1 (loadings are approximately 0.9, 0.8, 0.6, and 0.7, respectively),while "Gaming_Hours_Per_Week" are negative(-0.8).
+#"Social_Integration" and "Social_Media_Hours_Per_Week" is strongly positively correlated with RC2 (loading is 0.8 and 0.7).
+#"Sport_Hours_Per_Week" and "Sleeping_Hours_Per_Day" are associated with RC3.
+
+#Loading matrix(Contribution of variables on each factor)
+print(fit.pc$loadings,cutoff=0.3)
+#GPA and English_Level have high positive loadings on Factor RC1, indicating they are highly related to RC1. 
+#Social_Integration and Social_Media_Hours_Per_Week have an extremely high loading on Factor RC2, which is possibly related to social contact of students in daily life. And students'mental health maybe has high correlation with social contact.
+#Gaming_Hours_Per_Week has a strong negative loading on Factor RC1.
+#Sport_Hours_Per_Week is highly related to Factor RC3.
+
+#Communalities
+loadings_squared <- fit.pc$loadings^2
+communalities <- rowSums(loadings_squared)
+print(communalities)
+comm_df <- data.frame(Variable = names(communalities), 
+                      Communalities = communalities)
+ggplot(comm_df, aes(x = reorder(Variable, Communalities), y = Communalities)) +
+  geom_bar(stat = "identity", fill = 'skyblue') +
+  coord_flip() +
+  labs(x = "Variables", y = "Communalities", 
+       title = "Communalities of Each Variable") +
+  theme_minimal() 
+#The high communality values indicate that the model captures a significant portion of the variance for most of the variables. 
+#Except for Study_Hours_Per_Week and Sleeping_Hours_Per_Day, variables have high communalities, suggesting a strong correlation with the factors.
+
+#Scores of individuals on each factor
+scores <- factor.scores(data_numeric,fit.pc)$scores
+print(scores)
+```
+
+# Multiple Regression
+```{r}
+set.seed(123)
+sample_size <- floor(0.7 * nrow(data1))
+train_indices <- sample(seq_len(nrow(data1)), size = sample_size)
+train_data <- data1[train_indices, ]
+test_data <- data1[-train_indices, ]
+#multiple regression model development
+fit1 <- lm(GPA~English_Level+Social_Integration+Study_Hours_Per_Week+Mental_Health+Social_Media_Hours_Per_Week+Gaming_Hours_Per_Week+Sport_Hours_Per_Week+Sleeping_Hours_Per_Day, data=train_data)
+plot(fit1)
+
+#acceptance
+summary(fit1)
+#p(multiple)=0.002707, significant
+#p(English_Level)= 0.000676, p(Study_Hours_Per_Week)= 0.000941, p(Gaming_Hours_Per_Week)= 0.045673, significant
+#Mental_Health(0.085722) and Sleeping_Hours_Per_Day(0.078464) are not very significant.
+#Residual standard error=0.2292 on 13 degrees of freedom,indicating that the mean difference between predicted values and actual values is 0.2292.
+#R-squared value is 0.6351, indicating that the model can explain about 63.51% of the variability in the dependent variable (GPA).
+
+#residual analysis
+library(car)
+res<-residuals(fit1)
+plot(res)   #almost between -4 and 2
+#normality of Residuals
+#qq plot for studentized resid
+qqPlot(fit1, main="QQ Plot")   
+#distribution of studentized residuals
+library(MASS)
+sresid <- studres(fit1)
+hist(sresid, freq=FALSE,
+     main="Distribution of Studentized Residuals")
+xfit1<-seq(min(sresid),max(sresid),length=40)
+yfit1<-dnorm(xfit1)
+lines(xfit1, yfit1)
+#residuals not very normally distributed and have outliers like:(rows)86,95
+
+#predict
+predicted_values <- predict(fit1, newdata = test_data)
+actual_values <- test_data$GPA
+plot(actual_values, type = 'b', pch = 19, col = 'blue', ylim = c(min(c(actual_values, predicted_values)), max(c(actual_values, predicted_values))), xlab = "Observation", ylab = "GPA", main = "Actual vs Predicted GPA")
+lines(predicted_values, type = 'b', pch = 17, col = 'red')
+legend("topright", legend = c("Actual", "Predicted"), col = c("blue", "red"), pch = c(19, 17), lty = 1)
+
+#accuracy
+MSE <- mean((predicted_values - actual_values)^2)  #MSE=0.047
+MSE
+RMSE <- sqrt(MSE)  #RMSE=0.22
+RMSE
+press_statistic <- sum((res / (1 - lm.influence(fit1)$hat))^2)  #PRESS=4.50
+press_statistic
+tss <- sum((test_data$GPA - mean(test_data$GPA))^2)   #TSS=3.91
+tss
+p_squared <- 1 - (press_statistic / tss)   #P^2=-0.15
+p_squared
+
+#RMSE is relatively small, indicating that the model has a high degree of fitting in the sample.
+#PRESS is also small to TSS, indicating that the prediction error is relatively small to the total variation in the data.
+#However, the P^2 value is negative. The model possibily overfits and does not explain the variability of the data well. So the prediction of new data is not very accurate.
+```
+
+# Logistic Regression
+```{r}
+#turn to binary variable
+data1$GPA <- ifelse(data1$GPA >= 3.5, 1, 0) #positive<-1;high_GPA
+data1$GPA <- as.factor(data1$GPA)
+data1$Gender <- as.factor(data1$Gender)
+str(data1)
+
+#Logistic Regression
+#simple logistic regression
+xtabs(~ GPA + Gender, data=data1)
+simple_logistic <- glm(GPA ~ Gender, data = data1, family = "binomial")
+summary(simple_logistic)
+#(Intercept)=0.7577: The logarithmic probability of a high GPA (category 1) when Gender is female is 0.7577.
+#GenderM=-0.5018: Male students have a 0.5 lower logarithmic probability of having a high GPA than female.
+#The model suggests that female students are more likely to have higher GPAs(GenderM is negative).
+#However, GenderM's p-value>0.05(0.2261),indicating a lack of significance.
+#We cannot trust the factor of genders in determining GPA levels.
+
+#Multiple logistic regression
+multiple_logistic <- glm(GPA ~ English_Level+Social_Integration+Study_Hours_Per_Week+Mental_Health+Social_Media_Hours_Per_Week+Gaming_Hours_Per_Week+Sport_Hours_Per_Week+Sleeping_Hours_Per_Day+Gender, data = data1, family = "binomial")
+summary(multiple_logistic)
+#p=0.91;take away Sport(0.88)
+multiple_logistic2 <- glm(GPA ~ English_Level+Social_Integration+Study_Hours_Per_Week+Mental_Health+Social_Media_Hours_Per_Week+Gaming_Hours_Per_Week+Sleeping_Hours_Per_Day+Gender,data = data1, family = "binomial")
+summary(multiple_logistic2)
+#take away Gender
+multiple_logistic3 <- glm(GPA ~ English_Level+Social_Integration+Study_Hours_Per_Week+Mental_Health+Social_Media_Hours_Per_Week+Gaming_Hours_Per_Week+Sleeping_Hours_Per_Day, data = data1, family = "binomial")
+summary(multiple_logistic3)
+#take away English_Level
+multiple_logistic4 <- glm(GPA ~ Social_Integration+Study_Hours_Per_Week+Mental_Health+Social_Media_Hours_Per_Week+Gaming_Hours_Per_Week+Sleeping_Hours_Per_Day, data = data1, family = "binomial")
+summary(multiple_logistic4)
+#take away Social_Integration
+multiple_logistic5 <- glm(GPA ~ Study_Hours_Per_Week+Mental_Health+Social_Media_Hours_Per_Week+Gaming_Hours_Per_Week+Sleeping_Hours_Per_Day, data = data1, family = "binomial")
+summary(multiple_logistic5)
+#p=0.21,not significant, but p value of each variable is less than 0.05.
+
+#residual analysis
+library(car)
+res<-residuals(multiple_logistic5)
+plot(res)   #almost between -1 and 1(one is at -2)
+library(MASS)
+sresid <- studres(multiple_logistic5)
+hist(sresid, freq=FALSE,
+     main="Distribution of Studentized Residuals")
+xmultiple_logistic5<-seq(min(sresid),max(sresid),length=40)
+ymultiple_logistic5<-dnorm(xmultiple_logistic5)
+lines(xmultiple_logistic5, ymultiple_logistic5)
+#Residuals are not very normally distributed.
+
+#Predict
+predict_probs <- predict(multiple_logistic5, type = "response",newdata = data1)
+predict_probs
+predicted_levels <- as.factor(ifelse(predict_probs > 0.5,1,0))
+predicted_levels
+data1$GPA
+library(caret)
+confusionMatrix(predicted_levels, data1$GPA)
+#Accuracy:0.8922
+conf_matrix <- table(Predicted = predicted_levels, Actual = data1$GPA)
+library(reshape2)
+melted_conf_matrix <- melt(as.matrix(conf_matrix), varnames = c("Actual", "Predicted"))
+ggplot(data = melted_conf_matrix, aes(x = Actual, y = Predicted, fill = value))+
+  geom_tile(color = "white")+
+  scale_fill_gradient(low = "lightblue", high = "lightgray")+ 
+  geom_text(aes(label = value), vjust = 1.5, color = "black")+
+  labs(title = "Confusion Matrix", x = "Actual Class", y = "Predicted Class")+  
+  theme_minimal()
+#TP=7,TN=32,model has better predicting performance on category 0(low GPA) rather than 1(high GPA).
+
+#ROC
+library(pROC)
+roc(data1$GPA,multiple_logistic5$fitted.values,plot=TRUE, legacy.axes=TRUE, xlab="False Positive Percentage", ylab="True Postive Percentage", col="#377eb8", lwd=4)
+```
+
+# Takeaways
+We can find that international students' academical performance is correlated with many variables, mainly study hours, gaming hours(negative) and English level. Mental health is also important. And 6-8 hours sleep time is good for getting higher GPA. 
+In addition, those who have more social contact usually have better mental health state.
