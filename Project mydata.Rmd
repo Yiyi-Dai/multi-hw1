@@ -220,7 +220,7 @@ summary(fit1)
 #residual analysis
 library(car)
 res<-residuals(fit1)
-plot(res)   #almost between -4 and 2
+plot(res)   #almost between -0.4 and 0.4
 #normality of Residuals
 #qq plot for studentized resid
 qqPlot(fit1, main="QQ Plot")   
@@ -297,7 +297,7 @@ summary(multiple_logistic5)
 #residual analysis
 library(car)
 res<-residuals(multiple_logistic5)
-plot(res)   #almost between -1 and 1(one is at -2)
+plot(res)   #almost between -2 and 2
 library(MASS)
 sresid <- studres(multiple_logistic5)
 hist(sresid, freq=FALSE,
